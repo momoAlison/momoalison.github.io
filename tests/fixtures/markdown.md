@@ -37,7 +37,7 @@ const intentionallyLongLine = 'This long code line verifies that code scrolls wi
 
 ## Images
 
-![The existing developer illustration](/personal-website/images/character.svg)
+![The existing developer illustration](/images/character.svg)
 
 ## Reading and navigation
 

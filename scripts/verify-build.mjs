@@ -3,7 +3,7 @@ import { resolve, dirname, join } from 'node:path';
 import assert from 'node:assert/strict';
 
 export async function verifyBuild(directory = 'dist') {
-  const base = '/personal-website/';
+  const base = '/';
   const files = await readdir(directory, { recursive: true });
   const pages = files.filter((file) => file.endsWith('.html'));
   for (const route of ['index.html', 'blog/index.html', 'about/index.html']) {
@@ -12,6 +12,9 @@ export async function verifyBuild(directory = 'dist') {
   assert(!pages.some((page) => page.startsWith('resume/')), 'Resume is out of scope');
   for (const page of pages) {
     const html = await readFile(join(directory, page), 'utf8');
+    assert(!html.includes('/personal-website/'), `${page} contains the obsolete project-site path`);
+    const canonical = new URL(page.replace(/index\.html$/, ''), 'https://momoalison.github.io/').href;
+    assert(html.includes(`rel="canonical" href="${canonical}"`), `${page} needs a root-site canonical URL`);
     assert(!/<script\b/i.test(html), `${page} ships a script`);
     assert.equal((html.match(/<h1\b/g) || []).length, 1, `${page} needs one h1`);
     assert(html.includes('Skip to content'), `${page} needs a skip link`);

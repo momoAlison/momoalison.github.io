@@ -4,8 +4,8 @@ import { unified, rehypeHeadingIds } from '@astrojs/markdown-remark';
 import editorialMarkdown from './src/lib/editorial-markdown.mjs';
 
 export default defineConfig({
-  site: 'https://momoAlison.github.io',
-  base: '/personal-website',
+  site: 'https://momoalison.github.io',
+  base: '/',
   trailingSlash: 'always',
   output: 'static',
   cacheDir: './.astro/cache',

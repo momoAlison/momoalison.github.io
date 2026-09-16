@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:4321/personal-website/`.
+Open `http://localhost:4321/`.
 
 ```sh
 npm run check       # Astro + TypeScript
@@ -45,23 +45,23 @@ draft: false
 ---
 ```
 
-A file `notes/example.md` becomes `/personal-website/blog/notes/example/`. Filenames determine URLs; keep them stable. `draft: true` excludes a post from every listing and from static routes, including development. Dates sort newest first and display in UTC. Future dates do not schedule publication; use `draft` until ready. Tags are nonempty, case-insensitively unique strings.
+A file `notes/example.md` becomes `/blog/notes/example/`. Filenames determine URLs; keep them stable. `draft: true` excludes a post from every listing and from static routes, including development. Dates sort newest first and display in UTC. Future dates do not schedule publication; use `draft` until ready. Tags are nonempty, case-insensitively unique strings.
 
 Use h2/h3 for article sections; h1 is provided by the layout. TOC appears with two or more h2/h3 headings. Heading links and syntax highlighting are generated at build time. Wide tables and code blocks scroll inside the reading column. Standard Markdown needs no components. MDX can optionally import `src/components/Callout.astro` using a relative path from the article file. Rich comparison components are deferred.
 
-For Markdown images, prefer local relative images so Astro can process them. For public assets or internal links, include the `/personal-website/` base; in Astro/MDX use `withBase` from `src/lib/urls.ts` where practical. The supplied character SVG remains byte-for-byte unchanged as an external, dimensioned image, ready for later SVG interaction work.
+For Markdown images, prefer local relative images so Astro can process them. For public assets or internal links, use root-relative paths such as `/images/character.svg` and `/blog/`; in Astro/MDX use `withBase` from `src/lib/urls.ts` where practical. The supplied character SVG remains byte-for-byte unchanged as an external, dimensioned image, ready for later SVG interaction work.
 
 ## GitHub Pages
 
-The existing remote is `momoAlison/personal-website`. `astro.config.mjs` sets:
+The existing remote is `momoAlison/momoalison.github.io`. This is a GitHub Pages user site served from `/`. `astro.config.mjs` sets:
 
-- site: `https://momoAlison.github.io`
-- base: `/personal-website`
+- site: `https://momoalison.github.io`
+- base: `/`
 - static output and trailing slashes
 
 The workflow in `.github/workflows/deploy.yml` checks types, tests isolated fixtures, builds production, validates it, and uploads only `dist/` before deploying. It runs on pushes to `main` or manual dispatch.
 
-Before the first deployment, select **Settings → Pages → Build and deployment → Source → GitHub Actions** in the repository. The expected URL is `https://momoAlison.github.io/personal-website/`. This implementation does not push, trigger a workflow, or change repository settings. If the repository is renamed or a custom domain is added, update site/base and the build-validation base together.
+Before the first deployment, select **Settings → Pages → Build and deployment → Source → GitHub Actions** in the repository. The expected URL is `https://momoalison.github.io/`. This implementation does not push, trigger a workflow, or change repository settings. If the repository is renamed or a custom domain is added, update site/base and the build-validation base together.
 
 ## Scope
 
