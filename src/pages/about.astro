@@ -1,0 +1,8 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../data/site';
+import { withBase } from '../lib/urls';
+---
+<BaseLayout title="About">
+  <div class="about-page"><header class="page-intro"><p class="eyebrow">About</p><h1>{site.about.title}</h1><p>{site.about.introduction}</p></header><section class="about-body" aria-labelledby="about-space"><h2 id="about-space">Building. Learning. Writing.</h2>{site.about.paragraphs.map((paragraph) => <p>{paragraph}</p>)}<a class="text-link" href={withBase('blog/')}>Explore the notebook <span aria-hidden="true">→</span></a></section></div>
+</BaseLayout>

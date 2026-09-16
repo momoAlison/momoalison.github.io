@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostList from '../../components/PostList.astro';
+import { getPublishedPosts } from '../../lib/blog';
+const posts = await getPublishedPosts();
+---
+<BaseLayout title="Blog">
+  <header class="page-intro"><p class="eyebrow">The notebook</p><h1>Writing, thinking,<br />figuring things out.</h1><p>Notes and essays on software, AI, and the ideas behind them.</p></header>
+  <div class="collection-guide"><p><span class="collection notes">Notes</span> Learning in progress. Useful things to return to.</p><p><span class="collection essays">Essays</span> A little more room to explore an idea.</p></div>
+  <section class="blog-writing" aria-labelledby="all-writing"><div class="section-heading"><h2 id="all-writing">All writing</h2><span class="muted">{posts.length} {posts.length === 1 ? 'article' : 'articles'}</span></div>
+  {posts.length ? <PostList posts={posts} /> : <div class="empty-state blog-empty"><p class="eyebrow">Nothing published just yet</p><h3>A notebook, ready to be filled.</h3><p>Future notes and essays will appear here, with their topics and publication dates.</p></div>}
+  </section>
+</BaseLayout>

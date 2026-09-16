@@ -1,0 +1,21 @@
+---
+title: MDX rendering fixture
+description: A private fixture for MDX and callout validation.
+published: 2026-01-16
+collection: essays
+tags: [AI]
+draft: false
+---
+import Callout from '../../components/Callout.astro';
+
+## A richer note
+
+Standard Markdown works alongside a small Astro component.
+
+<Callout title="Something to remember">
+  <p>This callout is rendered as static HTML, without client hydration.</p>
+</Callout>
+
+## An expression
+
+MDX can evaluate an expression at build time: **{2 + 2}**.

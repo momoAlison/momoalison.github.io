@@ -1,0 +1,31 @@
+---
+import '../styles/global.css';
+import { site } from '../data/site';
+import { withBase } from '../lib/urls';
+interface Props { title?: string; description?: string; }
+const { title, description = site.description } = Astro.props;
+const path = Astro.url.pathname;
+const navigation = [{ label: 'Home', path: '' }, { label: 'Blog', path: 'blog/' }, { label: 'About', path: 'about/' }];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#faf8f3" />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <title>{title ? `${title} — ${site.title}` : site.title}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header shell">
+      <a class="wordmark" href={withBase()} aria-label="Home — a space for building and learning">build <span aria-hidden="true">&</span> learn<span class="accent">.</span></a>
+      <nav aria-label="Main navigation">
+        {navigation.map((item) => <a href={withBase(item.path)} aria-current={(item.path ? path.startsWith(withBase(item.path)) : path === withBase()) ? 'page' : undefined}>{item.label}</a>)}
+      </nav>
+    </header>
+    <main id="main" class="shell" tabindex="-1"><slot /></main>
+    <footer class="site-footer shell"><p>A space for building & learning.</p><p>Made with care. Kept simple.</p></footer>
+  </body>
+</html>
