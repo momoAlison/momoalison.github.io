@@ -9,7 +9,11 @@ export async function verifyBuild(directory = 'dist') {
   for (const route of ['index.html', 'blog/index.html', 'about/index.html']) {
     assert(pages.includes(route), `Missing ${route}`);
   }
-  assert(!pages.some((page) => page.startsWith('resume/')), 'Resume is out of scope');
+  // The Resume/Work pages are gone for good; that content now lives inline
+  // on About. Nothing should ship these routes or a resume file.
+  assert(!pages.includes('resume/index.html'), 'resume/ route must not exist');
+  assert(!pages.includes('work/index.html'), 'work/ route must not exist');
+  assert(!files.some((file) => file.toLowerCase().endsWith('.pdf')), 'dist must not ship a resume/CV PDF');
   for (const page of pages) {
     const html = await readFile(join(directory, page), 'utf8');
     if (page === 'blog/notes/functions-tools-agents-langchain/index.html') {
@@ -29,9 +33,11 @@ export async function verifyBuild(directory = 'dist') {
     const canonical = new URL(page.replace(/index\.html$/, ''), 'https://momoalison.github.io/').href;
     assert(html.includes(`rel="canonical" href="${canonical}"`), `${page} needs a root-site canonical URL`);
 
-    // Article pages with a TOC (>1 H2/H3) progressively enhance with one tiny
-    // scrollspy script; every other page must stay entirely script-free.
+    // Article pages with a TOC (>1 H2/H3) and About (its inline Work timeline
+    // toggle) each progressively enhance with exactly one tiny, page-scoped
+    // script; every other page must stay entirely script-free.
     const hasToc = html.includes('class="article-toc"');
+    const isAbout = page === 'about/index.html';
     const scriptCount = (html.match(/<script\b/gi) || []).length;
     if (hasToc) {
       assert.equal(scriptCount, 1, `${page} has a TOC and should ship exactly one scrollspy script`);
@@ -52,6 +58,18 @@ export async function verifyBuild(directory = 'dist') {
         if (level === 2 || level === 3) assert(inToc, `${page} heading #${id} (h${level}) is missing from the TOC/scrollspy`);
         else assert(!inToc, `${page} heading #${id} (h${level}) must not appear in the TOC/scrollspy`);
       }
+    } else if (isAbout) {
+      assert.equal(scriptCount, 1, `${page} should ship exactly one interaction script`);
+      assert(!/<astro-island\b/i.test(html), 'About must not ship a framework runtime');
+      assert(!/Download PDF|tun-li-resume\.pdf|Technical Skills|View details/i.test(html), 'About must not expose old Resume/Work-era CV UI');
+      assert(html.includes('id="about-more-toggle"') && html.includes('aria-controls="about-timeline"'), 'About is missing the More/Less timeline toggle');
+      assert(html.includes('More <span aria-hidden="true">↓'), 'About "More" control should use a down arrow, not a navigation arrow');
+      assert(html.includes('images/sayhi.svg'), 'About should use the sayhi illustration');
+      // The timeline is text-only now: no tag chips, no Education section,
+      // no hover-highlighting hooks left over from the earlier iteration.
+      assert(!/class="work-tag/.test(html), 'About timeline must not show technology tags');
+      assert(!/class="education-list/.test(html), 'About timeline must not show a separate Education section');
+      assert((html.match(/class="timeline-item"/g) || []).length > 0, 'About timeline is missing experience entries');
     } else {
       assert.equal(scriptCount, 0, `${page} ships a script`);
     }
@@ -73,6 +91,6 @@ export async function verifyBuild(directory = 'dist') {
       await access(target);
     }
   }
-  console.log(`Verified ${pages.length} static routes: base paths, local links/assets, anchors, headings, scoped scrollspy scripts, and no Resume.`);
+  console.log(`Verified ${pages.length} static routes: base paths, local links/assets, anchors, headings, and scoped page-level scripts.`);
 }
 if (process.argv[1] === new URL(import.meta.url).pathname) await verifyBuild();

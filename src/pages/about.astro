@@ -2,12 +2,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { site } from '../data/site';
 import { withBase } from '../lib/urls';
+import { experience } from '../data/work';
 ---
 <BaseLayout title="About">
   <div class="about-page">
     <header class="about-hero">
       <div class="about-intro"><p class="eyebrow">About</p><h1>{site.about.title}</h1><p>{site.about.introduction}</p></div>
-      <div class="character about-character"><img src={withBase('images/character.svg')} width="1254" height="1254" alt="Hand-drawn developer with a blue-green hair tie, working at a laptop beside a cup of coffee." /></div>
+      <div class="character about-character"><img src={withBase('images/sayhi.svg')} width="1254" height="1254" alt="Hand-drawn illustration of the site owner waving hello." /></div>
     </header>
 
     <section class="about-path" aria-labelledby="about-path-heading">
@@ -23,9 +24,32 @@ import { withBase } from '../lib/urls';
     </section>
 
     <section class="about-background" aria-labelledby="about-background-heading">
-      <p class="eyebrow" id="about-background-heading">Background</p>
+      <div class="about-section-head">
+        <p class="eyebrow" id="about-background-heading">Background</p>
+        <button type="button" class="about-more" id="about-more-toggle" aria-expanded="false" aria-controls="about-timeline">
+          <span class="about-more-closed">More <span aria-hidden="true">↓</span></span>
+          <span class="about-more-open">Less <span aria-hidden="true">↑</span></span>
+        </button>
+      </div>
       <ul class="background-items">{site.about.background.map((item) => <li><p class="background-label">{item.label}</p><p class="background-detail">{item.detail}</p></li>)}</ul>
     </section>
+
+    <div class="about-timeline" id="about-timeline">
+      <p class="eyebrow">Work Experience</p>
+      <ol class="timeline">
+        {experience.map((item) => (
+          <li class="timeline-item">
+            <p class="timeline-year">{item.yearLabel}</p>
+            <div class="timeline-marker"><span class="timeline-dot" aria-hidden="true"></span></div>
+            <div class="timeline-body">
+              <p class="timeline-org">{item.org}</p>
+              <p class="timeline-role">{item.role}</p>
+              <p class="timeline-description">{item.project && <strong>{item.project}</strong>}{item.project ? ' — ' : ''}{item.description}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
 
     <footer class="about-footer">
       <div class="about-footer-links">
@@ -35,5 +59,83 @@ import { withBase } from '../lib/urls';
       </div>
       <p class="about-closing">{site.about.closing}</p>
     </footer>
+
+    <script>
+      // Progressive enhancement only: the timeline renders fully visible by
+      // default (real content, no JS required to read it). JS collapses it
+      // behind the "More" toggle and, once expanded, drives a single
+      // "how many nodes are active" count that both the scroll position and
+      // a hover/focus preview can set — whichever is active wins, so there's
+      // one rendering path rather than two competing systems. A passive
+      // rAF-throttled scroll listener is used instead of
+      // IntersectionObserver, matching the article TOC scrollspy elsewhere
+      // on the site. Scoped to this page only.
+      const toggle = document.getElementById('about-more-toggle');
+      const panel = document.getElementById('about-timeline');
+      if (toggle && panel) {
+        panel.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+
+        const items = Array.from(panel.querySelectorAll<HTMLElement>('.timeline-item'));
+        let scrollCount = 0;
+        // Non-null while hovering/focusing a node: temporarily overrides
+        // scrollCount so the line previews exactly up to that node.
+        let previewCount: number | null = null;
+
+        const render = () => {
+          const activeCount = previewCount !== null ? previewCount : scrollCount;
+          items.forEach((item, index) => item.classList.toggle('is-reached', index < activeCount));
+        };
+
+        let ticking = false;
+        const updateScrollCount = () => {
+          ticking = false;
+          const readLine = window.innerHeight * 0.3;
+          scrollCount = items.filter((item) => {
+            const dot = item.querySelector('.timeline-dot');
+            return dot ? dot.getBoundingClientRect().top <= readLine : false;
+          }).length;
+          render();
+        };
+        window.addEventListener(
+          'scroll',
+          () => {
+            if (panel.hidden || ticking) return;
+            ticking = true;
+            requestAnimationFrame(updateScrollCount);
+          },
+          { passive: true },
+        );
+
+        // Touch devices report no real pointer hover; skip mouse listeners
+        // there so a tap can't leave the preview stuck with no matching
+        // pointerleave, and scrolling stays the only driver on touch.
+        const supportsHover = window.matchMedia('(hover: hover)').matches;
+        items.forEach((item, index) => {
+          const preview = () => {
+            previewCount = index + 1;
+            render();
+          };
+          const clearPreview = () => {
+            previewCount = null;
+            render();
+          };
+          if (supportsHover) {
+            item.addEventListener('mouseenter', preview);
+            item.addEventListener('mouseleave', clearPreview);
+          }
+          item.tabIndex = 0;
+          item.addEventListener('focus', preview);
+          item.addEventListener('blur', clearPreview);
+        });
+
+        toggle.addEventListener('click', () => {
+          const expanded = toggle.getAttribute('aria-expanded') === 'true';
+          toggle.setAttribute('aria-expanded', String(!expanded));
+          panel.hidden = expanded;
+          if (!panel.hidden) updateScrollCount();
+        });
+      }
+    </script>
   </div>
 </BaseLayout>

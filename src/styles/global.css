@@ -170,6 +170,44 @@ img { max-width: 100%; height: auto; }
 .callout.warning .callout-icon { color: var(--secondary); }
 .callout > :last-child { margin-bottom: 0; }
 .article-footer { max-width: var(--width-reading); margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+
+/* About: inline "More" toggle + Work timeline */
+.about-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.about-more { font: inherit; cursor: pointer; background: none; border: 0; padding: 0; color: var(--text); font-size: .9rem; }
+.about-more:hover { color: var(--accent); text-decoration: underline; }
+.about-more-open { display: none; }
+.about-more[aria-expanded='true'] .about-more-closed { display: none; }
+.about-more[aria-expanded='true'] .about-more-open { display: inline; }
+
+.about-timeline { margin-top: 2.25rem; padding-top: 2.25rem; border-top: 1px solid var(--border); }
+@media (prefers-reduced-motion: no-preference) {
+  .about-timeline:not([hidden]) { animation: about-timeline-fade .3s ease-out; }
+}
+@keyframes about-timeline-fade { from { opacity: 0; } to { opacity: 1; } }
+.about-timeline > .eyebrow { margin-bottom: 1.5rem; }
+
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline-item { display: grid; grid-template-columns: 96px 32px 1fr; column-gap: 1rem; align-items: start; padding-block: 1.5rem; border-bottom: 1px solid var(--border); }
+.timeline-item:last-child { border-bottom: 0; }
+.timeline-year { grid-column: 1; text-align: right; color: var(--secondary); font-size: .8rem; padding-top: .15rem; }
+.timeline-marker { grid-column: 2; grid-row: 1; align-self: stretch; position: relative; display: flex; justify-content: center; padding-top: .3rem; }
+.timeline-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); box-shadow: 0 0 0 3px var(--background); position: relative; z-index: 1; }
+/* Restrained scroll-progress line: a continuous neutral-gray stroke behind
+   the dots, one segment per row so it never needs document-coordinate math.
+   JS just toggles .is-reached on the row as the reader scrolls past it. */
+.timeline-marker::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--border); transform: translateX(-50%); }
+.timeline-item:last-child .timeline-marker::before { bottom: auto; height: calc(.3rem + 4.5px); }
+.timeline-item.is-reached .timeline-marker::before,
+.timeline-item.is-reached .timeline-dot { background: var(--accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .timeline-marker::before, .timeline-dot { transition: background-color .4s ease; }
+}
+.timeline-body { grid-column: 3; min-width: 0; }
+.timeline-org { font-weight: 600; }
+.timeline-role { color: var(--secondary); font-size: .92rem; margin-top: .1rem; }
+.timeline-description { margin-top: .6rem; line-height: 1.6; }
+.timeline-description strong { font-weight: 600; color: var(--text); }
+
 @media (max-width: 900px) {
   .shell { width: calc(100% - 4rem); }
   .hero { padding-block: 4rem; grid-template-columns: 1.2fr 1fr; gap: 0; }
@@ -198,6 +236,10 @@ img { max-width: 100%; height: auto; }
   .path-steps { flex-direction: column; gap: 1.5rem; }
   .path-step:not(:last-child)::after { content: '↓'; top: auto; bottom: -1.1rem; right: auto; left: 0; }
   .about-footer { flex-direction: column; align-items: flex-start; }
+  .timeline-item { grid-template-columns: 20px 1fr; column-gap: .85rem; }
+  .timeline-year { grid-column: 2; grid-row: 1; text-align: left; padding-top: 0; margin-bottom: .3rem; font-size: .78rem; }
+  .timeline-marker { grid-column: 1; grid-row: 1 / span 2; }
+  .timeline-body { grid-column: 2; grid-row: 2; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
