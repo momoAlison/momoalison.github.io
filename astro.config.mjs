@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import { unified, rehypeHeadingIds } from '@astrojs/markdown-remark';
+import rehypeMermaid from 'rehype-mermaid';
 import editorialMarkdown from './src/lib/editorial-markdown.mjs';
 
 export default defineConfig({
@@ -12,6 +13,12 @@ export default defineConfig({
   integrations: [mdx()],
   markdown: {
     shikiConfig: { theme: 'github-light' },
-    processor: unified({ rehypePlugins: [rehypeHeadingIds, editorialMarkdown] }),
+    // Shiki skips ```mermaid blocks so rehype-mermaid (below) sees the raw
+    // diagram source and renders it to static inline SVG at build time —
+    // no mermaid.js ships to the browser.
+    syntaxHighlight: { type: 'shiki', excludeLangs: ['mermaid'] },
+    processor: unified({
+      rehypePlugins: [rehypeHeadingIds, [rehypeMermaid, { strategy: 'inline-svg' }], editorialMarkdown],
+    }),
   },
 });

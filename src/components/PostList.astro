@@ -6,10 +6,10 @@ interface Props { posts: CollectionEntry<'blog'>[]; }
 const { posts } = Astro.props;
 ---
 <ul class="post-list">
-  {posts.map((post) => <li>
+  {posts.map((post) => <li data-collection={post.data.collection}>
     <article class="post-entry">
       <div class="post-meta"><span class:list={['collection', post.data.collection]}>{collectionLabels[post.data.collection]}</span><time datetime={post.data.published.toISOString()}>{formatDate(post.data.published)}</time></div>
-      <h3><a href={postUrl(post.id)}>{post.data.title}<span aria-hidden="true"> ↗</span></a></h3>
+      <h3><a href={postUrl(post.id)}>{post.data.title}</a></h3>
       {post.data.description && <p>{post.data.description}</p>}
       {post.data.tags.length > 0 && <ul class="tags" aria-label="Topics">{post.data.tags.map((tag) => <li>{tag}</li>)}</ul>}
     </article>

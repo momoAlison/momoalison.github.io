@@ -4,5 +4,36 @@ import { site } from '../data/site';
 import { withBase } from '../lib/urls';
 ---
 <BaseLayout title="About">
-  <div class="about-page"><header class="page-intro"><p class="eyebrow">About</p><h1>{site.about.title}</h1><p>{site.about.introduction}</p></header><section class="about-body" aria-labelledby="about-space"><h2 id="about-space">Building. Learning. Writing.</h2>{site.about.paragraphs.map((paragraph) => <p>{paragraph}</p>)}<a class="text-link" href={withBase('blog/')}>Explore the notebook <span aria-hidden="true">→</span></a></section></div>
+  <div class="about-page">
+    <header class="about-hero">
+      <div class="about-intro"><p class="eyebrow">About</p><h1>{site.about.title}</h1><p>{site.about.introduction}</p></div>
+      <div class="character about-character"><img src={withBase('images/character.svg')} width="1254" height="1254" alt="Hand-drawn developer with a blue-green hair tie, working at a laptop beside a cup of coffee." /></div>
+    </header>
+
+    <section class="about-path" aria-labelledby="about-path-heading">
+      <p class="eyebrow" id="about-path-heading">My path</p>
+      <ol class="path-steps">
+        {site.about.path.map((step) => <li class="path-step"><p class="path-step-label">{step.label}</p><p class="path-step-description">{step.description}</p></li>)}
+      </ol>
+    </section>
+
+    <section class="about-interests" aria-labelledby="about-interests-heading">
+      <p class="eyebrow" id="about-interests-heading">Currently interested in</p>
+      <ul class="interest-pills">{site.about.interests.map((interest) => <li>{interest}</li>)}</ul>
+    </section>
+
+    <section class="about-background" aria-labelledby="about-background-heading">
+      <p class="eyebrow" id="about-background-heading">Background</p>
+      <ul class="background-items">{site.about.background.map((item) => <li><p class="background-label">{item.label}</p><p class="background-detail">{item.detail}</p></li>)}</ul>
+    </section>
+
+    <footer class="about-footer">
+      <div class="about-footer-links">
+        <a class="text-link" href={withBase('blog/')}>Explore the notebook <span aria-hidden="true">→</span></a>
+        <a class="text-link" href={site.about.social.github} target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
+        <a class="text-link" href={site.about.social.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn <span aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
+      </div>
+      <p class="about-closing">{site.about.closing}</p>
+    </footer>
+  </div>
 </BaseLayout>

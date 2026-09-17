@@ -1,5 +1,6 @@
 ---
-interface Props { title?: string; }
-const { title = 'A note' } = Astro.props;
+interface Props { title?: string; variant?: 'note' | 'tip' | 'warning'; }
+const { title = 'A note', variant = 'note' } = Astro.props;
+const icon = { note: '●', tip: '◆', warning: '▲' }[variant];
 ---
-<aside class="callout" aria-label={title}><p class="callout-title">{title}</p><slot /></aside>
+<aside class:list={['callout', variant]} aria-label={title}><p class="callout-title"><span class="callout-icon" aria-hidden="true">{icon}</span>{title}</p><slot /></aside>
