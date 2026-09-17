@@ -38,6 +38,7 @@ export async function verifyBuild(directory = 'dist') {
     // script; every other page must stay entirely script-free.
     const hasToc = html.includes('class="article-toc"');
     const isAbout = page === 'about/index.html';
+    const isBlogIndex = page === 'blog/index.html';
     const scriptCount = (html.match(/<script\b/gi) || []).length;
     if (hasToc) {
       assert.equal(scriptCount, 1, `${page} has a TOC and should ship exactly one scrollspy script`);
@@ -70,6 +71,18 @@ export async function verifyBuild(directory = 'dist') {
       assert(!/class="work-tag/.test(html), 'About timeline must not show technology tags');
       assert(!/class="education-list/.test(html), 'About timeline must not show a separate Education section');
       assert((html.match(/class="timeline-item"/g) || []).length > 0, 'About timeline is missing experience entries');
+    } else if (isBlogIndex) {
+      assert.equal(scriptCount, 1, `${page} should ship exactly one filtering script`);
+      assert(!/<astro-island\b/i.test(html), 'Blog index must not ship a framework runtime');
+      if (html.includes('class="post-list"')) {
+        // Topics only render once there is published, tagged content.
+        assert(html.includes('class="topics"'), `${page} is missing the Topics section`);
+        assert(html.includes('aria-pressed="true"') && html.includes('data-topic=""'), `${page} is missing the "All topics" control`);
+        const topicButtons = (html.match(/class="topic"/g) || []).length;
+        assert(topicButtons > 1, `${page} Topics list should include "All topics" plus at least one real tag`);
+        assert(html.includes('class="filter-empty" hidden'), `${page} is missing a hidden-by-default empty-state message`);
+        assert((html.match(/data-tags="/g) || []).length > 0, `${page} post rows are missing data-tags for topic filtering`);
+      }
     } else {
       assert.equal(scriptCount, 0, `${page} ships a script`);
     }

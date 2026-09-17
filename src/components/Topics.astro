@@ -1,0 +1,20 @@
+---
+import type { TopicCount } from '../lib/blog';
+interface Props { topics: TopicCount[]; }
+const { topics } = Astro.props;
+---
+{topics.length > 0 && (
+  <nav class="topics" aria-label="Filter by topic">
+    <p class="eyebrow topics-heading">Topics</p>
+    <ul class="topic-list">
+      <li><button type="button" class="topic" data-topic="" aria-pressed="true">All topics</button></li>
+      {topics.map((topic) => (
+        <li>
+          <button type="button" class="topic" data-topic={topic.slug} aria-pressed="false">
+            <span class="topic-label">{topic.tag}</span><span class="topic-count">{topic.count}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}

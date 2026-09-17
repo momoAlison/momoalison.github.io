@@ -1,8 +1,10 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PostList from '../../components/PostList.astro';
-import { getPublishedPosts } from '../../lib/blog';
+import Topics from '../../components/Topics.astro';
+import { getPublishedPosts, getTopicCounts } from '../../lib/blog';
 const posts = await getPublishedPosts();
+const topics = getTopicCounts(posts);
 ---
 <BaseLayout title="Writing">
   <header class="page-intro"><p class="eyebrow">Writing</p><h1>Writing</h1><p>Notes, comparisons, and things I want to understand better.</p></header>
@@ -17,7 +19,60 @@ const posts = await getPublishedPosts();
         <input type="radio" name="filter" id="filter-essays" class="visually-hidden" />
         <label for="filter-essays">Essays</label>
       </div>
+      <Topics topics={topics} />
       <PostList posts={posts} />
+      <p class="filter-empty" hidden>No writing matches these filters yet.</p>
     </> : <div class="empty-state blog-empty"><p class="eyebrow">Nothing published just yet</p><h3>A notebook, ready to be filled.</h3><p>Future notes and essays will appear here, with their topics and publication dates.</p></div>}
   </section>
+
+  <script>
+    // Progressive enhancement only: every published article stays visible
+    // by default (real content, no JS required to read it). JS layers a
+    // Topic filter on top of the existing collection radio filter — the
+    // collection filter keeps working exactly as before (pure CSS, no JS
+    // needed for it), and Topic filtering combines with it by setting an
+    // inline display override only on non-matching rows. Clearing that
+    // override (display = '') lets the collection stylesheet rule fully
+    // decide visibility again, so the two dimensions AND together without
+    // duplicating either one's logic. Scoped to this page only.
+    const postList = document.querySelector('.post-list');
+    const emptyMessage = document.querySelector<HTMLElement>('.filter-empty');
+    const topicButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.topic'));
+    const collectionInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.filter-tabs input'));
+
+    if (postList && emptyMessage && topicButtons.length) {
+      const items = Array.from(postList.querySelectorAll<HTMLLIElement>(':scope > li'));
+      let activeTopic: string | null = null;
+
+      const updateEmptyState = () => {
+        const anyVisible = items.some((item) => getComputedStyle(item).display !== 'none');
+        emptyMessage.hidden = anyVisible;
+      };
+
+      const applyTopic = () => {
+        for (const item of items) {
+          const tags = (item.dataset.tags ?? '').split(' ').filter(Boolean);
+          item.style.display = !activeTopic || tags.includes(activeTopic) ? '' : 'none';
+        }
+        updateEmptyState();
+      };
+
+      for (const button of topicButtons) {
+        button.addEventListener('click', () => {
+          const slug = button.dataset.topic || null;
+          activeTopic = slug === null ? null : activeTopic === slug ? null : slug;
+          for (const btn of topicButtons) {
+            btn.setAttribute('aria-pressed', String((btn.dataset.topic || null) === activeTopic));
+          }
+          applyTopic();
+        });
+      }
+
+      for (const input of collectionInputs) {
+        input.addEventListener('change', updateEmptyState);
+      }
+
+      updateEmptyState();
+    }
+  </script>
 </BaseLayout>

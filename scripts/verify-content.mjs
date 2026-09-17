@@ -28,7 +28,34 @@ try {
   assert(blog.indexOf('MDX rendering fixture') < blog.indexOf('Markdown rendering fixture'), 'Posts are not newest-first');
   assert(!blog.includes('Unpublished fixture') && !home.includes('Unpublished fixture'), 'Draft leaked into a listing');
   await assert.rejects(readFile(join(root, 'dist/blog/draft/index.html')), { code: 'ENOENT' });
-  console.log('Markdown, MDX, TOC, duplicate heading anchors, highlighting, tables, callouts, sorting, and draft exclusion passed.');
+
+  // Topic counts: this build mixes the fixtures with real published
+  // content, so exact totals aren't fixed — assert what the fixtures
+  // themselves guarantee instead. markdown.md carries [Programming,
+  // TypeScript] and mdx.mdx carries [AI], each published once, so every
+  // fixture tag must appear with a count of at least 1.
+  const topicsNav = blog.match(/<nav class="topics".*?<\/nav>/s)?.[0] ?? '';
+  const entries = [...topicsNav.matchAll(/data-topic="([^"]*)"[^<]*(?:<span class="topic-label">([^<]+)<\/span><span class="topic-count">(\d+)<\/span>)?/g)]
+    .filter((match) => match[1] !== '') // drop the "All topics" control itself
+    .map(([, slug, tag, count]) => ({ slug, tag, count: Number(count) }));
+  for (const [tag, slug] of [['AI', 'ai'], ['Programming', 'programming'], ['TypeScript', 'typescript']]) {
+    const entry = entries.find((item) => item.slug === slug);
+    assert(entry && entry.tag === tag && entry.count >= 1, `Topics is missing the published "${tag}" control (slug "${slug}")`);
+  }
+  // General sort invariant — count descending, alphabetical on ties — so
+  // this still holds no matter what real content contributes.
+  for (let i = 1; i < entries.length; i++) {
+    const [prev, cur] = [entries[i - 1], entries[i]];
+    assert(
+      prev.count > cur.count || (prev.count === cur.count && prev.tag.localeCompare(cur.tag) <= 0),
+      `Topics are not sorted by count desc / alphabetical: "${prev.tag}" (${prev.count}) before "${cur.tag}" (${cur.count})`,
+    );
+  }
+  // draft.md carries [Draft Topic] and must not leak into the build-time
+  // tag index, not just the visible post list.
+  assert(!blog.includes('Draft Topic') && !blog.includes('data-topic="draft-topic"'), 'A draft article\'s tag leaked into the Topics index');
+
+  console.log('Markdown, MDX, TOC, duplicate heading anchors, highlighting, tables, callouts, sorting, draft exclusion, and topic counts passed.');
   if (process.argv.includes('--keep')) console.log(`Fixture preview directory: ${root}`);
 } finally {
   if (!process.argv.includes('--keep')) await rm(root, { recursive: true, force: true });
