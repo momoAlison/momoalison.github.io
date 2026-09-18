@@ -25,7 +25,7 @@ export async function verifyBuild(directory = 'dist') {
   await access(join(directory, 'og-image.png'));
   const files = await readdir(directory, { recursive: true });
   const pages = files.filter((file) => file.endsWith('.html'));
-  for (const route of ['index.html', 'blog/index.html', 'about/index.html', '404.html']) {
+  for (const route of ['index.html', 'blog/index.html', 'about/index.html', '404.html', 'site-guide/index.html']) {
     assert(pages.includes(route), `Missing ${route}`);
   }
   // The Resume/Work pages are gone for good; that content now lives inline
@@ -50,8 +50,8 @@ export async function verifyBuild(directory = 'dist') {
     }
     assert(!html.includes('/personal-website/'), `${page} contains the obsolete project-site path`);
     const canonical = new URL(page.replace(/index\.html$/, ''), 'https://momoalison.github.io/').href;
-    if (page === '404.html') {
-      assert(html.includes('name="robots" content="noindex"'), '404 must not be indexed');
+    if (page === '404.html' || page === 'site-guide/index.html') {
+      assert(html.includes('name="robots" content="noindex"'), `${page} must not be indexed`);
     } else {
       assert.equal((html.match(/rel="canonical"/g) || []).length, 1, `${page} needs one canonical`);
       assert(html.includes(`rel="canonical" href="${canonical}"`), `${page} needs a root-site canonical URL`);
@@ -67,20 +67,25 @@ export async function verifyBuild(directory = 'dist') {
     assert(/name="description" content="[^"]+"/.test(html), `${page} needs a description`);
     if (page.startsWith('blog/') && page !== 'blog/index.html') assert(html.includes('property="og:type" content="article"'), `${page} needs article social metadata`);
 
-    // Every article page ships the tiny Copy-button script unconditionally
-    // (it's a no-op if the article happens to have no code blocks), plus a
-    // TOC scrollspy only when a TOC (>1 H2/H3) actually renders. About/Home/
-    // Blog index each ship exactly one interaction script of their own;
-    // every other page must stay entirely script-free.
+    // Every article page ships the tiny Copy-button script and the
+    // Back-to-top script unconditionally (both are no-ops until there's
+    // something to act on — no code blocks, or no scroll past the reveal
+    // threshold), plus a TOC scrollspy only when a TOC (>1 H2/H3) actually
+    // renders. The Site Guide shares the exact same ArticleToc/
+    // CopyButtonScript/BackToTop components, so it shares this branch's
+    // invariants too, not a separate one. About/Home/Blog index each ship
+    // exactly one interaction script of their own; every other page must
+    // stay entirely script-free.
     const hasToc = html.includes('class="article-toc"');
-    const isArticle = page.startsWith('blog/') && page !== 'blog/index.html';
+    const isArticle = (page.startsWith('blog/') && page !== 'blog/index.html') || page === 'site-guide/index.html';
     const isAbout = page === 'about/index.html';
     const isBlogIndex = page === 'blog/index.html';
     const isHome = page === 'index.html';
     const scriptCount = (html.match(/<script\b/gi) || []).length;
     if (isArticle) {
-      const expectedScripts = 1 + (hasToc ? 1 : 0);
-      assert.equal(scriptCount, expectedScripts, `${page} should ship the Copy-button script always, plus a TOC scrollspy only when a TOC renders`);
+      const expectedScripts = 2 + (hasToc ? 1 : 0);
+      assert.equal(scriptCount, expectedScripts, `${page} should ship the Copy-button and Back-to-top scripts always, plus a TOC scrollspy only when a TOC renders`);
+      assert(html.includes('class="back-to-top"') && html.includes('aria-label="Back to top"'), `${page} is missing the Back-to-top control`);
 
       // Every rendered <pre> must get exactly one build-time wrapper and
       // button, regardless of whether the article's script does anything.
@@ -189,8 +194,11 @@ export async function verifyBuild(directory = 'dist') {
   }
   const sitemap = await readFile(join(directory, 'sitemap-0.xml'), 'utf8');
   const sitemapUrls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1]);
-  const expectedUrls = pages.filter((page) => page !== '404.html').map((page) => new URL(page.replace(/index\.html$/, ''), 'https://momoalison.github.io/').href);
-  assert.deepEqual(sitemapUrls.sort(), expectedUrls.sort(), 'Sitemap must contain exactly the public HTML routes');
+  // 404 and the Site Guide are both noindex and intentionally excluded from
+  // the sitemap (see the sitemap() filter in astro.config.mjs) — every other
+  // route must appear exactly once.
+  const expectedUrls = pages.filter((page) => page !== '404.html' && page !== 'site-guide/index.html').map((page) => new URL(page.replace(/index\.html$/, ''), 'https://momoalison.github.io/').href);
+  assert.deepEqual(sitemapUrls.sort(), expectedUrls.sort(), 'Sitemap must contain exactly the public, indexable HTML routes');
   const feed = await readFile(join(directory, 'rss.xml'), 'utf8');
   const feedLinks = [...feed.matchAll(/<item>[\s\S]*?<link>(.*?)<\/link>/g)].map((match) => match[1]);
   assert.deepEqual(feedLinks.sort(), expectedUrls.filter((url) => /\/blog\/.+/.test(new URL(url).pathname)).sort(), 'RSS must contain exactly the published articles');

@@ -1,5 +1,7 @@
 # Design Reference
 
+> Historical planning document. For the current site architecture, design system, and maintenance rules, see `src/pages/site-guide.mdx`.
+
 `homepage-reference.png` is the primary visual reference for the homepage.
 
 Use it as a direction, not as a pixel-perfect specification.

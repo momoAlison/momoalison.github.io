@@ -1,0 +1,41 @@
+---
+---
+<script>
+  // Progressive enhancement for code blocks: the build-time markdown transform
+  // renders each Copy button `hidden`, so this reveals them and wires one
+  // delegated click handler for the page — not one listener per button. If a
+  // page has no code blocks, `buttons` is simply empty and this does nothing.
+  // Shared by ArticleLayout and the Site Guide so the interaction only lives
+  // in one place.
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.copy-button');
+  if (buttons.length) {
+    buttons.forEach((button) => { button.hidden = false; });
+
+    const RESET_MS = 1600;
+    const resetTimers = new Map<HTMLButtonElement, number>();
+    const resetButton = (button: HTMLButtonElement) => {
+      button.textContent = 'Copy';
+      button.setAttribute('aria-label', 'Copy code');
+      button.classList.remove('is-copied');
+    };
+
+    document.querySelector('.prose')?.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.copy-button');
+      if (!button) return;
+      const codeText = button.closest('.code-block')?.querySelector('pre code')?.textContent ?? '';
+      if (!codeText) return;
+
+      navigator.clipboard?.writeText(codeText).then(() => {
+        const existing = resetTimers.get(button);
+        if (existing) window.clearTimeout(existing);
+        button.textContent = 'Copied ✓';
+        button.setAttribute('aria-label', 'Copied to clipboard');
+        button.classList.add('is-copied');
+        resetTimers.set(button, window.setTimeout(() => resetButton(button), RESET_MS));
+      }).catch(() => {
+        // Clipboard unavailable/denied: leave the button as-is. The code
+        // itself is always plain selectable text, so nothing is broken.
+      });
+    });
+  }
+</script>

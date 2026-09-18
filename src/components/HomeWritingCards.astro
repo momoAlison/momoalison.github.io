@@ -1,0 +1,17 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { collectionLabels, formatDate } from '../lib/blog';
+import { postUrl } from '../lib/urls';
+interface Props { posts: CollectionEntry<'blog'>[]; }
+const { posts } = Astro.props;
+---
+<ul class="writing-cards">
+  {posts.map((post) => (
+    <li class="writing-card">
+      <div class="post-meta"><span class:list={['collection', post.data.collection]}>{collectionLabels[post.data.collection]}</span><time datetime={post.data.published.toISOString()}>{formatDate(post.data.published)}</time></div>
+      <h3 class="writing-card-title"><a class="writing-card-link" href={postUrl(post.id)}>{post.data.title}</a></h3>
+      {post.data.description && <p class="writing-card-description">{post.data.description}</p>}
+      <span class="writing-card-cta" aria-hidden="true">Read <span aria-hidden="true">→</span></span>
+    </li>
+  ))}
+</ul>

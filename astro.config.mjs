@@ -12,7 +12,7 @@ export default defineConfig({
   trailingSlash: 'always',
   output: 'static',
   cacheDir: './.astro/cache',
-  integrations: [mdx(), sitemap()],
+  integrations: [mdx(), sitemap({ filter: (page) => !page.includes('/site-guide/') })],
   markdown: {
     shikiConfig: { theme: vitesseLightWarm },
     // Shiki skips ```mermaid blocks so rehype-mermaid (below) sees the raw

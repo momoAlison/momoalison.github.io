@@ -1,5 +1,7 @@
 # Personal Website — Roadmap
 
+> Historical planning document. For the current site architecture, design system, and maintenance rules, see `src/pages/site-guide.mdx`.
+
 ## Phase 1 — Foundation
 
 Goal: get a complete, deployable v1 website running with the correct visual system.

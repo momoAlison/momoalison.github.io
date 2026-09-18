@@ -1,5 +1,7 @@
 # Personal Website — Site Brief v1
 
+> Historical planning document. For the current site architecture, design system, and maintenance rules, see `src/pages/site-guide.mdx`.
+
 ## 1. Purpose
 
 Build a personal website that combines:

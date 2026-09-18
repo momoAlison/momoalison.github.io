@@ -1,0 +1,111 @@
+---
+import type { MarkdownHeading } from 'astro';
+interface Props { headings: MarkdownHeading[]; }
+const { headings } = Astro.props;
+const toc = headings.filter(({ depth }) => depth === 2 || depth === 3);
+---
+{toc.length > 1 && <aside class="article-toc" aria-label="Table of contents">
+  <nav class="toc-full" aria-label="On this page" tabindex="0"><h2>On this page</h2><ul>{toc.map((heading) => <li class:list={{ nested: heading.depth === 3 }}><a href={`#${heading.slug}`} data-slug={heading.slug}>{heading.text}</a></li>)}</ul></nav>
+  <details class="toc-compact">
+    <summary aria-label="Article outline">
+      <span class="toc-strokes" aria-hidden="true">{toc.map((heading, i) => <span class:list={['toc-stroke', { 'toc-stroke-short': heading.depth === 3, 'toc-group-start': heading.depth === 2 && i > 0 }]} data-slug={heading.slug} />)}</span>
+    </summary>
+    <nav class="toc-panel" aria-label="Article outline" tabindex="0"><h2>On this page</h2><ul>{toc.map((heading) => <li class:list={{ nested: heading.depth === 3 }}><a href={`#${heading.slug}`} data-slug={heading.slug}>{heading.text}</a></li>)}</ul></nav>
+  </details>
+  <script>
+    // Tiny progressive-enhancement scrollspy: highlights the H2/H3 currently being
+    // read across the full TOC, the compact rail strokes, and the expanded rail panel.
+    // No framework, no dependency; runs only on pages that render this aside.
+    // Astro compiles this to a module script, where document.currentScript is
+    // always null — so we locate the (single, page-level) TOC directly instead.
+    // Shared by ArticleLayout and the Site Guide: this only depends on
+    // headings/`.prose`, never on blog-specific data, so reusing it here adds
+    // no coupling to blog metadata.
+    const tocEl = document.querySelector<HTMLElement>('.article-toc');
+    const headings = tocEl
+      ? [...document.querySelectorAll<HTMLElement>('.prose h2[id], .prose h3[id]')]
+        .filter((h) => tocEl.querySelector(`[data-slug="${h.id}"]`))
+      : [];
+
+    if (tocEl && headings.length) {
+      const links = [...tocEl.querySelectorAll<HTMLElement>('a[data-slug]')];
+      const strokes = [...tocEl.querySelectorAll<HTMLElement>('.toc-stroke[data-slug]')];
+
+      const parentOf = new Map<string, string>();
+      let currentH2: string | null = null;
+      for (const h of headings) {
+        if (h.tagName === 'H2') currentH2 = h.id;
+        else if (currentH2) parentOf.set(h.id, currentH2);
+      }
+
+      // Keep the active link discoverable inside the sticky full-desktop TOC
+      // (`tocEl` itself is the scrollable box — see `.article-toc` in
+      // global.css) without fighting a manual scroll: only nudges `tocEl`'s
+      // own scrollTop, and only by the minimum amount needed when the newly
+      // active link actually falls outside the currently visible region —
+      // never centers, never touches window/page scroll. Below the 1104px
+      // breakpoint `.article-toc` switches to `overflow: visible`, so this
+      // is naturally a no-op there — the compact rail/panel is unaffected.
+      const revealActiveLink = (link: HTMLElement) => {
+        const containerRect = tocEl.getBoundingClientRect();
+        const linkRect = link.getBoundingClientRect();
+        const BUFFER = 8;
+        if (linkRect.top < containerRect.top) {
+          tocEl.scrollTop -= containerRect.top - linkRect.top + BUFFER;
+        } else if (linkRect.bottom > containerRect.bottom) {
+          tocEl.scrollTop += linkRect.bottom - containerRect.bottom + BUFFER;
+        }
+      };
+
+      let activeSlug: string | null = null;
+      const setActive = (slug: string | null) => {
+        if (slug === activeSlug) return;
+        activeSlug = slug;
+        const parentSlug = slug ? parentOf.get(slug) : null;
+        for (const el of [...links, ...strokes]) {
+          const isActive = el.dataset.slug === slug;
+          const isParent = el.dataset.slug === parentSlug;
+          el.classList.toggle('active', isActive);
+          el.classList.toggle('active-parent', isParent && !isActive);
+          if (el.tagName === 'A') {
+            if (isActive) el.setAttribute('aria-current', 'location');
+            else el.removeAttribute('aria-current');
+          }
+        }
+        // links[0] for a given slug is always the full-desktop TOC's own
+        // link (it's declared before the compact rail's duplicate in the
+        // markup), so this targets exactly the sticky sidebar, never the
+        // (usually closed) compact rail panel.
+        const activeLink = slug ? links.find((el) => el.dataset.slug === slug) : null;
+        if (activeLink) revealActiveLink(activeLink);
+      };
+
+      const OFFSET = 96; // small reading buffer below the top of the viewport
+      const computeActive = () => {
+        let current = null;
+        for (const h of headings) {
+          if (h.getBoundingClientRect().top - OFFSET <= 0) current = h;
+          else break;
+        }
+        setActive(current ? current.id : null);
+      };
+
+      const spyObserver = new IntersectionObserver(computeActive, {
+        rootMargin: `-${OFFSET}px 0px -70% 0px`,
+        threshold: 0,
+      });
+      headings.forEach((h) => spyObserver.observe(h));
+
+      // IntersectionObserver drives most updates cheaply; a passive, rAF-throttled
+      // scroll listener is kept only as a redundant correctness net (some engines
+      // throttle IO callbacks more aggressively than real scroll events).
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => { computeActive(); ticking = false; });
+      }, { passive: true });
+      computeActive();
+    }
+  </script>
+</aside>}
