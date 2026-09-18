@@ -1,0 +1,9 @@
+---
+interface Props { titleLeft?: string; titleRight?: string; caption?: string; }
+const { titleLeft = 'TypeScript', titleRight = 'Python', caption } = Astro.props;
+---
+<figure class="code-compare">
+  {caption && <figcaption class="code-compare-caption">{caption}</figcaption>}
+  <div class="code-compare-col"><p class="code-compare-label">{titleLeft}</p><slot name="left" /></div>
+  <div class="code-compare-col"><p class="code-compare-label">{titleRight}</p><slot name="right" /></div>
+</figure>

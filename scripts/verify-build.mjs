@@ -67,32 +67,51 @@ export async function verifyBuild(directory = 'dist') {
     assert(/name="description" content="[^"]+"/.test(html), `${page} needs a description`);
     if (page.startsWith('blog/') && page !== 'blog/index.html') assert(html.includes('property="og:type" content="article"'), `${page} needs article social metadata`);
 
-    // Article pages with a TOC (>1 H2/H3) and About (its inline Work timeline
-    // toggle) each progressively enhance with exactly one tiny, page-scoped
-    // script; every other page must stay entirely script-free.
+    // Every article page ships the tiny Copy-button script unconditionally
+    // (it's a no-op if the article happens to have no code blocks), plus a
+    // TOC scrollspy only when a TOC (>1 H2/H3) actually renders. About/Home/
+    // Blog index each ship exactly one interaction script of their own;
+    // every other page must stay entirely script-free.
     const hasToc = html.includes('class="article-toc"');
+    const isArticle = page.startsWith('blog/') && page !== 'blog/index.html';
     const isAbout = page === 'about/index.html';
     const isBlogIndex = page === 'blog/index.html';
     const isHome = page === 'index.html';
     const scriptCount = (html.match(/<script\b/gi) || []).length;
-    if (hasToc) {
-      assert.equal(scriptCount, 1, `${page} has a TOC and should ship exactly one scrollspy script`);
-      // Scan only markup, not the scrollspy script's own source text (which
-      // legitimately contains the same `data-slug="..."` selector as a JS string).
-      const htmlWithoutScripts = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-      const slugCounts = new Map();
-      for (const [, slug] of htmlWithoutScripts.matchAll(/data-slug="([^"]+)"/g)) {
-        slugCounts.set(slug, (slugCounts.get(slug) || 0) + 1);
+    if (isArticle) {
+      const expectedScripts = 1 + (hasToc ? 1 : 0);
+      assert.equal(scriptCount, expectedScripts, `${page} should ship the Copy-button script always, plus a TOC scrollspy only when a TOC renders`);
+
+      // Every rendered <pre> must get exactly one build-time wrapper and
+      // button, regardless of whether the article's script does anything.
+      const preCount = (html.match(/<pre\b/g) || []).length;
+      const codeBlockCount = (html.match(/class="code-block"/g) || []).length;
+      const copyButtonCount = (html.match(/class="copy-button"/g) || []).length;
+      assert.equal(codeBlockCount, preCount, `${page} every <pre> should have exactly one .code-block wrapper`);
+      assert.equal(copyButtonCount, preCount, `${page} every <pre> should get exactly one Copy button`);
+      if (preCount > 0) {
+        assert(html.includes('class="copy-button" aria-label="Copy code" hidden') || html.includes('class="copy-button" hidden aria-label="Copy code"'), `${page} Copy buttons must render \`hidden\` by default (progressive enhancement)`);
       }
-      assert(slugCounts.size > 0, `${page} TOC is missing data-slug identifiers needed by the scrollspy`);
-      for (const [slug, count] of slugCounts) {
-        assert.equal(count, 3, `${page} slug "${slug}" must appear in the full TOC, the expanded rail panel, and the compact rail stroke (found ${count})`);
-      }
-      const proseHeadings = [...html.matchAll(/<h([2-6])\b[^>]*\bid="([^"]+)"/g)].map(([, level, id]) => ({ level: Number(level), id }));
-      for (const { level, id } of proseHeadings) {
-        const inToc = slugCounts.has(id);
-        if (level === 2 || level === 3) assert(inToc, `${page} heading #${id} (h${level}) is missing from the TOC/scrollspy`);
-        else assert(!inToc, `${page} heading #${id} (h${level}) must not appear in the TOC/scrollspy`);
+      assert(!/<svg\b[^>]*id="mermaid-[^"]*"[\s\S]{0,80}class="copy-button"/.test(html), `${page} must not put a Copy button on a rendered Mermaid diagram`);
+
+      if (hasToc) {
+        // Scan only markup, not the scrollspy script's own source text (which
+        // legitimately contains the same `data-slug="..."` selector as a JS string).
+        const htmlWithoutScripts = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+        const slugCounts = new Map();
+        for (const [, slug] of htmlWithoutScripts.matchAll(/data-slug="([^"]+)"/g)) {
+          slugCounts.set(slug, (slugCounts.get(slug) || 0) + 1);
+        }
+        assert(slugCounts.size > 0, `${page} TOC is missing data-slug identifiers needed by the scrollspy`);
+        for (const [slug, count] of slugCounts) {
+          assert.equal(count, 3, `${page} slug "${slug}" must appear in the full TOC, the expanded rail panel, and the compact rail stroke (found ${count})`);
+        }
+        const proseHeadings = [...html.matchAll(/<h([2-6])\b[^>]*\bid="([^"]+)"/g)].map(([, level, id]) => ({ level: Number(level), id }));
+        for (const { level, id } of proseHeadings) {
+          const inToc = slugCounts.has(id);
+          if (level === 2 || level === 3) assert(inToc, `${page} heading #${id} (h${level}) is missing from the TOC/scrollspy`);
+          else assert(!inToc, `${page} heading #${id} (h${level}) must not appear in the TOC/scrollspy`);
+        }
       }
     } else if (isAbout) {
       assert.equal(scriptCount, 1, `${page} should ship exactly one interaction script`);

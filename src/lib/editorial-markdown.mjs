@@ -1,4 +1,19 @@
-// Runs at build time, after Astro supplies heading IDs. No browser script required.
+// Runs at build time, after Astro supplies heading IDs.
+const element = (tagName, properties, children) => ({ type: 'element', tagName, properties, children });
+const text = (value) => ({ type: 'text', value });
+
+// Wraps a highlighted <pre> (an ordinary fenced block, or one inside a CodeCompare
+// column) so a Copy button can be positioned in its corner. The button is rendered
+// `hidden` — the tiny article-scoped script in ArticleLayout.astro reveals it and
+// wires the click handler. Without JS it just stays hidden (progressive
+// enhancement): code remains fully readable and correctly highlighted either way.
+function wrapCodeBlock(pre) {
+  return element('div', { className: ['code-block'] }, [
+    pre,
+    element('button', { type: 'button', className: ['copy-button'], ariaLabel: 'Copy code', hidden: true }, [text('Copy')]),
+  ]);
+}
+
 export default function editorialMarkdown() {
   return (tree) => {
     function visit(node) {
@@ -40,8 +55,6 @@ export default function editorialMarkdown() {
             }
             return value;
           }
-          const element = (tagName, properties, children) => ({ type: 'element', tagName, properties, children });
-          const text = (value) => ({ type: 'text', value });
           return element('div', { className: ['mermaid-figure'] }, [
             element('button', { type: 'button', className: ['mermaid-preview'], popoverTarget: id, ariaLabel: 'Enlarge diagram' }, [
               child,
@@ -56,11 +69,11 @@ export default function editorialMarkdown() {
             ]),
           ]);
         }
-        return child.tagName === 'table' ? {
-          type: 'element', tagName: 'div',
-          properties: { className: ['table-scroll'], tabIndex: 0, role: 'region', ariaLabel: 'Scrollable table' },
-          children: [child],
-        } : child;
+        if (child.tagName === 'table') {
+          return element('div', { className: ['table-scroll'], tabIndex: 0, role: 'region', ariaLabel: 'Scrollable table' }, [child]);
+        }
+        if (child.tagName === 'pre') return wrapCodeBlock(child);
+        return child;
       });
     }
     visit(tree);

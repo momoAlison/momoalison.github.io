@@ -8,6 +8,7 @@ draft: false
 ---
 
 import Callout from '../../../components/Callout.astro';
+import CodeCompare from '../../../components/CodeCompare.astro';
 
 This post documents my key takeaways from reading *Python Crash Course*. Coming from a front-end background, I wanted to map out the foundational syntax differences between **Python** and **TypeScript** to make the learning curve a bit smoother. 
 
@@ -357,15 +358,24 @@ While JS also uses the `%` operator, assuming it acts the same in Python will le
 - **JavaScript (`%` is the Remainder Operator):** The sign of the result strictly follows the **dividend** (the number being divided).
 - **Python (`%` is the True Modulo Operator):** The sign of the result strictly follows the **divisor** (the number dividing by).
 
+<CodeCompare>
+<Fragment slot="left">
+
 ```javascript
 // JavaScript
 console.log(-5 % 3); // Outputs: -2
 ```
 
+</Fragment>
+<Fragment slot="right">
+
 ```python
 # Python
 print(-5 % 3) # Outputs: 1
 ```
+
+</Fragment>
+</CodeCompare>
 
 **3. The Classic Dilemma: `0.1 + 0.2 != 0.3`**
 As long as the underlying hardware uses the IEEE 754 double-precision standard, this physical limitation exists in both languages. However, the business solutions in Web Dev vs. AI differ wildly:
@@ -635,14 +645,28 @@ print(numbers) # [1, 2, 3, 4, 5]
 #### 3. The Ultimate Weapon: List Comprehensions
 This is one of Python's most elegant syntactic sugars, acting as the **perfect replacement for JavaScript's `Array.prototype.map()`**.
 
+<CodeCompare>
+<Fragment slot="left">
+
+```javascript
+// Generate squares from 1 to 10
+const squares = Array.from({ length: 10 }, (_, i) => (i + 1) ** 2);
+console.log(squares);
+```
+
+</Fragment>
+<Fragment slot="right">
+
 ```python
 # Generate squares from 1 to 10
-# JS Equivalent: Array.from({length: 10}, (_, i) => (i + 1) ** 2)
 squares = [value**2 for value in range(1, 11)]
 print(squares)
 
 # [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
 ```
+
+</Fragment>
+</CodeCompare>
 Combined with Python's minimalist built-in math functions like `min(digits)`, `max(digits)`, and `sum(digits)`, data processing becomes incredibly frictionless.
 
 ---
@@ -920,19 +944,28 @@ This is where front-end developers face their first real culture shock in Python
 **JavaScript's Gentleness (or Hidden Danger):**
 Accessing a non-existent key in a JS Object silently returns `undefined`, allowing the code to continue running.
 
+**Python's Strictness: The `KeyError` Crash!**
+Python strictly prevents "implicit failure". Attempting to use bracket notation `[]` to access a missing key results in an instant, fatal crash.
+
+<CodeCompare>
+<Fragment slot="left">
+
 ```javascript
 let alien = { color: 'green' };
 console.log(alien.points); // Output: undefined (Peace and quiet)
 ```
 
-**Python's Strictness: The `KeyError` Crash!**
-Python strictly prevents "implicit failure". Attempting to use bracket notation `[]` to access a missing key results in an instant, fatal crash.
+</Fragment>
+<Fragment slot="right">
 
 ```python
 alien_0 = {'color': 'green'}
 # ❌ Fatal Crash: KeyError: 'points'
 print(alien_0['points'])
 ```
+
+</Fragment>
+</CodeCompare>
 
 **The Salvation: The `.get()` Method**
 To safely retrieve values, Python provides `.get(key, default_value)`. This acts as the perfect equivalent to JavaScript's optional chaining or logical OR operator.
@@ -976,12 +1009,18 @@ If you have a massive list of values containing duplicates (e.g., calling `dict.
 #### Difference 1: You CANNOT omit the quotes on keys!
 In JavaScript, object syntax is highly casual. If the key is a valid variable name, quotes are entirely optional:
 
+**Python is incredibly strict: If a dictionary key is a string, it MUST have quotes!**
+
+<CodeCompare>
+<Fragment slot="left">
+
 ```javascript
 // JS Casual Syntax
 const alien = { color: 'green', points: 5 };
 ```
 
-**Python is incredibly strict: If a dictionary key is a string, it MUST have quotes!**
+</Fragment>
+<Fragment slot="right">
 
 ```python
 # ❌ Python Error (Unless `color` was defined as a variable earlier)
@@ -990,6 +1029,9 @@ alien = { color: 'green' }
 # ✅ Correct Python Syntax
 alien = { 'color': 'green', 'points': 5 }
 ```
+
+</Fragment>
+</CodeCompare>
 
 #### Difference 2: Farewell, Dot Notation
 Front-end developers rely heavily on typing `obj.color`. **This absolutely does not work on Python dictionaries!**
@@ -1088,14 +1130,20 @@ When defining functions, Python relies on the `def` keyword, replacing curly bra
 
 In front-end development, handling multiple configuration options heavily relies on object destructuring to prevent argument order mix-ups:
 
+**Python's Superior Approach: Native Keyword Arguments**
+Python bypasses the need to wrap arguments in an extra dictionary or object. At the language level, it natively supports assigning values directly to parameter names during the function call. This completely eliminates strict order requirements and maximizes readability:
+
+<CodeCompare>
+<Fragment slot="left">
+
 ```typescript
 // TS/JS Common Practice: Passing a single configuration object
 function describePet({ animalType, petName }) { ... }
 describePet({ animalType: 'hamster', petName: 'harry' });
 ```
 
-**Python's Superior Approach: Native Keyword Arguments**
-Python bypasses the need to wrap arguments in an extra dictionary or object. At the language level, it natively supports assigning values directly to parameter names during the function call. This completely eliminates strict order requirements and maximizes readability:
+</Fragment>
+<Fragment slot="right">
 
 ```python
 def describe_pet(animal_type, pet_name):
@@ -1108,6 +1156,9 @@ describe_pet('hamster', 'harry')
 describe_pet(animal_type='hamster', pet_name='harry')
 describe_pet(pet_name='willie', animal_type='dog') # Reversed order works perfectly
 ```
+
+</Fragment>
+</CodeCompare>
 
 ---
 
@@ -1543,12 +1594,18 @@ As front-end developers, we use `JSON.stringify()` and `JSON.parse()` every sing
 
 **The Quick Comparison:**
 
+<CodeCompare>
+<Fragment slot="left">
+
 ```typescript
 // JS / TS
 const numbers = [2, 3, 5, 7];
 const jsonString = JSON.stringify(numbers);
 const parsedData = JSON.parse(jsonString);
 ```
+
+</Fragment>
+<Fragment slot="right">
 
 ```python
 # Python
@@ -1561,6 +1618,9 @@ json_string = json.dumps(numbers)
 # Parses the string back into a Python List
 parsed_data = json.loads(json_string)
 ```
+
+</Fragment>
+</CodeCompare>
 
 <Callout title="Extended Knowledge" variant="tip">
 

@@ -198,6 +198,13 @@ img { max-width: 100%; height: auto; }
 .prose code { font: .85em/1.7 var(--font-code); background: var(--surface); padding: .15em .3em; border-radius: 3px; }
 .prose pre { max-width: 100%; overflow-x: auto; padding: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius); }
 .prose pre code { background: none; padding: 0; }
+.code-block { position: relative; }
+/* Reserve room above the first code line so the Copy button never sits on top of it. */
+.code-block > pre { padding-top: 2.5rem; }
+.copy-button { position: absolute; top: .6rem; right: .6rem; font: 600 .68rem var(--font-body); letter-spacing: .04em; text-transform: uppercase; color: var(--secondary); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .3rem .6rem; line-height: 1; cursor: pointer; }
+.copy-button:hover { color: var(--text); border-color: var(--secondary); }
+.copy-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.copy-button.is-copied { color: var(--accent); border-color: var(--accent); }
 .prose blockquote { margin-inline: 0; border-left: 2px solid var(--accent); padding-left: 1.5rem; color: var(--secondary); font-family: var(--font-editorial); font-size: 1.2rem; }
 .table-scroll { overflow-x: auto; }
 .mermaid-figure { width: 100%; min-width: 0; margin-block: 1.5rem; }
@@ -225,6 +232,12 @@ img { max-width: 100%; height: auto; }
 .callout-icon { font-size: .65em; color: var(--accent); }
 .callout.warning .callout-icon { color: var(--secondary); }
 .callout > :last-child { margin-bottom: 0; }
+.code-compare { margin: 1.5rem 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.code-compare-caption { margin: 0; padding: .9rem 1.25rem 0; font: 600 .8rem var(--font-body); color: var(--secondary); }
+.code-compare-col { padding: 1rem 1.25rem 1.25rem; }
+.code-compare-col + .code-compare-col { border-top: 1px solid var(--border); }
+.code-compare-label { margin: 0 0 .75rem; display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--secondary); padding: .25rem .65rem; border-radius: 999px; background: var(--surface); }
+.prose .code-compare pre { margin: 0; border: 0; border-radius: 0; padding: 0; padding-top: 2.5rem; }
 .article-footer { max-width: var(--width-reading); margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
 
 /* About: inline "More" toggle + Work timeline */
