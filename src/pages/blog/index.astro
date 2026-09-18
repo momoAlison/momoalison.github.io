@@ -6,7 +6,7 @@ import { getPublishedPosts, getTopicCounts } from '../../lib/blog';
 const posts = await getPublishedPosts();
 const topics = getTopicCounts(posts);
 ---
-<BaseLayout title="Writing">
+<BaseLayout title="Writing" description="Notes, comparisons, and things I want to understand better about AI and software.">
   <header class="page-intro"><p class="eyebrow">Writing</p><h1>Writing</h1><p>Notes, comparisons, and things I want to understand better.</p></header>
   <section class="blog-writing" aria-labelledby="all-writing">
     <h2 id="all-writing" class="visually-hidden">All writing</h2>

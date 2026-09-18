@@ -2,8 +2,12 @@
 import '../styles/global.css';
 import { site } from '../data/site';
 import { withBase } from '../lib/urls';
-interface Props { title?: string; description?: string; }
-const { title, description = site.description } = Astro.props;
+interface Props { title?: string; description?: string; type?: 'website' | 'article'; published?: Date; noindex?: boolean; }
+const { title, description = site.description, type = 'website', published, noindex = false } = Astro.props;
+const pageTitle = title ? `${title} — ${site.title}` : site.title;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const socialImage = new URL(withBase('og-image.png'), Astro.site);
+const socialImageAlt = 'Applied AI, software, and writing — personal website illustration';
 const path = Astro.url.pathname;
 const navigation = [{ label: 'Home', path: '' }, { label: 'Blog', path: 'blog/' }, { label: 'About', path: 'about/' }];
 ---
@@ -14,8 +18,27 @@ const navigation = [{ label: 'Home', path: '' }, { label: 'Blog', path: 'blog/' 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#faf8f3" />
-    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
-    <title>{title ? `${title} — ${site.title}` : site.title}</title>
+    <link rel="icon" type="image/png" href={withBase('favicon.png')} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    <title>{pageTitle}</title>
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonical.href} />
+    <meta property="og:site_name" content={site.title} />
+    <meta property="og:image" content={socialImage.href} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1731" />
+    <meta property="og:image:height" content="909" />
+    <meta property="og:image:alt" content={socialImageAlt} />
+    {published && <meta property="article:published_time" content={published.toISOString()} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={socialImage.href} />
+    <meta name="twitter:image:alt" content={socialImageAlt} />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <link rel="sitemap" href={withBase('sitemap-index.xml')} />
+    <link rel="alternate" type="application/rss+xml" title={site.title} href={withBase('rss.xml')} />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>

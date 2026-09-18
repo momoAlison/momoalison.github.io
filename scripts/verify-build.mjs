@@ -21,9 +21,11 @@ function verifyInkPartition(html, prefix, regions, expectedHash) {
 
 export async function verifyBuild(directory = 'dist') {
   const base = '/';
+  await access(join(directory, 'favicon.png'));
+  await access(join(directory, 'og-image.png'));
   const files = await readdir(directory, { recursive: true });
   const pages = files.filter((file) => file.endsWith('.html'));
-  for (const route of ['index.html', 'blog/index.html', 'about/index.html']) {
+  for (const route of ['index.html', 'blog/index.html', 'about/index.html', '404.html']) {
     assert(pages.includes(route), `Missing ${route}`);
   }
   // The Resume/Work pages are gone for good; that content now lives inline
@@ -48,7 +50,22 @@ export async function verifyBuild(directory = 'dist') {
     }
     assert(!html.includes('/personal-website/'), `${page} contains the obsolete project-site path`);
     const canonical = new URL(page.replace(/index\.html$/, ''), 'https://momoalison.github.io/').href;
-    assert(html.includes(`rel="canonical" href="${canonical}"`), `${page} needs a root-site canonical URL`);
+    if (page === '404.html') {
+      assert(html.includes('name="robots" content="noindex"'), '404 must not be indexed');
+    } else {
+      assert.equal((html.match(/rel="canonical"/g) || []).length, 1, `${page} needs one canonical`);
+      assert(html.includes(`rel="canonical" href="${canonical}"`), `${page} needs a root-site canonical URL`);
+    }
+    for (const property of ['og:title', 'og:description', 'og:type', 'og:url', 'og:image']) {
+      assert.equal((html.match(new RegExp(`property="${property}"`, 'g')) || []).length, 1, `${page} needs one ${property}`);
+    }
+    assert(html.includes('rel="icon" type="image/png" href="/favicon.png"'), `${page} needs the root favicon`);
+    assert(html.includes('property="og:image" content="https://momoalison.github.io/og-image.png"'), `${page} needs the production social image`);
+    assert(html.includes('name="twitter:card" content="summary_large_image"'), `${page} needs a large-image Twitter card`);
+    assert(html.includes('name="twitter:image" content="https://momoalison.github.io/og-image.png"'), `${page} needs the same Twitter image`);
+    assert(/<title>[^<]+<\/title>/.test(html), `${page} needs a title`);
+    assert(/name="description" content="[^"]+"/.test(html), `${page} needs a description`);
+    if (page.startsWith('blog/') && page !== 'blog/index.html') assert(html.includes('property="og:type" content="article"'), `${page} needs article social metadata`);
 
     // Article pages with a TOC (>1 H2/H3) and About (its inline Work timeline
     // toggle) each progressively enhance with exactly one tiny, page-scoped
@@ -151,6 +168,14 @@ export async function verifyBuild(directory = 'dist') {
       await access(target);
     }
   }
+  const sitemap = await readFile(join(directory, 'sitemap-0.xml'), 'utf8');
+  const sitemapUrls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1]);
+  const expectedUrls = pages.filter((page) => page !== '404.html').map((page) => new URL(page.replace(/index\.html$/, ''), 'https://momoalison.github.io/').href);
+  assert.deepEqual(sitemapUrls.sort(), expectedUrls.sort(), 'Sitemap must contain exactly the public HTML routes');
+  const feed = await readFile(join(directory, 'rss.xml'), 'utf8');
+  const feedLinks = [...feed.matchAll(/<item>[\s\S]*?<link>(.*?)<\/link>/g)].map((match) => match[1]);
+  assert.deepEqual(feedLinks.sort(), expectedUrls.filter((url) => /\/blog\/.+/.test(new URL(url).pathname)).sort(), 'RSS must contain exactly the published articles');
+  assert(!/Disallow:\s*\/\s*$/m.test(await readFile(join(directory, 'robots.txt'), 'utf8')), 'Robots must allow indexing');
   console.log(`Verified ${pages.length} static routes: base paths, local links/assets, anchors, headings, and scoped page-level scripts.`);
 }
 if (process.argv[1] === new URL(import.meta.url).pathname) await verifyBuild();

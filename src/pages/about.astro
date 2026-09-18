@@ -5,7 +5,7 @@ import { site } from '../data/site';
 import { withBase } from '../lib/urls';
 import { experience } from '../data/work';
 ---
-<BaseLayout title="About">
+<BaseLayout title="About" description={site.about.introduction}>
   <div class="about-page">
     <header class="about-hero">
       <div class="about-intro"><p class="eyebrow">About</p><h1>{site.about.title}</h1><p>{site.about.introduction}</p></div>

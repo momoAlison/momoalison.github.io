@@ -8,7 +8,7 @@ interface Props { post: CollectionEntry<'blog'>; headings: MarkdownHeading[]; }
 const { post, headings } = Astro.props;
 const toc = headings.filter(({ depth }) => depth === 2 || depth === 3);
 ---
-<BaseLayout title={post.data.title} description={post.data.description}>
+<BaseLayout title={post.data.title} description={post.data.description} type="article" published={post.data.published}>
   <article class="article-page">
     <header class="article-header"><a class="text-link back-link" href={withBase('blog/')}><span aria-hidden="true">←</span> All writing</a><div class="post-meta"><span class:list={['collection', post.data.collection]}>{collectionLabels[post.data.collection]}</span><time datetime={post.data.published.toISOString()}>{formatDate(post.data.published)}</time></div><h1>{post.data.title}</h1>{post.data.description && <p class="article-description">{post.data.description}</p>}{post.data.tags.length > 0 && <ul class="tags" aria-label="Topics">{post.data.tags.map((tag) => <li>{tag}</li>)}</ul>}</header>
     <div class:list={['article-grid', { 'has-toc': toc.length > 1 }]}>

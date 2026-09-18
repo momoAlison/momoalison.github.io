@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
+import sitemap from '@astrojs/sitemap';
 import { unified, rehypeHeadingIds } from '@astrojs/markdown-remark';
 import rehypeMermaid from 'rehype-mermaid';
 import editorialMarkdown from './src/lib/editorial-markdown.mjs';
@@ -10,7 +11,7 @@ export default defineConfig({
   trailingSlash: 'always',
   output: 'static',
   cacheDir: './.astro/cache',
-  integrations: [mdx()],
+  integrations: [mdx(), sitemap()],
   markdown: {
     shikiConfig: { theme: 'github-light' },
     // Shiki skips ```mermaid blocks so rehype-mermaid (below) sees the raw
