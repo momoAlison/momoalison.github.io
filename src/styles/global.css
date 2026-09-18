@@ -57,7 +57,46 @@ img { max-width: 100%; height: auto; }
 .text-link:hover { text-decoration: underline; }
 .hero-footnote { margin-top: 2.5rem; font-size: .75rem; color: var(--secondary); }
 .character { width: 100%; }
-.character img { display: block; width: 100%; }
+.character img, .character svg { display: block; width: 100%; height: auto; }
+
+/* The original ink is partitioned with complementary clips. A shear about
+   each attachment line leaves the join fixed while the free end sways. */
+.home-character [data-eye-left], .home-character [data-eye-right] { transform: translate(var(--eye-x, 0px), var(--eye-y, 0px)); transform-box: fill-box; }
+.home-character [data-hair-lock] { transform-origin: 533px 508px; }
+.about-character { cursor: pointer; }
+.about-character [data-hand-left] { transform-origin: 388px 640px; }
+.about-character [data-hand-right] { transform-origin: 900px 646px; }
+.about-character [data-motion-left], .about-character [data-motion-right] { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .home-character [data-hair-lock] { animation: hair-sway 5.5s ease-in-out infinite; }
+  .about-character.is-waving [data-hand-left] { animation: hand-wave 1.6s ease-in-out; }
+  .about-character.is-waving [data-hand-right] { animation: hand-wave 1.6s ease-in-out .08s; }
+  .about-character.is-waving [data-motion-left], .about-character.is-waving [data-motion-right] { animation: motion-line-flicker 1.68s ease-in-out; }
+  .home-character [data-steam] { animation: coffee-steam 4.3s ease-in-out infinite; }
+  .home-character [data-steam="2"] { animation-duration: 4.9s; animation-delay: -2.1s; }
+}
+@keyframes hair-sway { 0%, 100% { transform: skewX(-3deg); } 50% { transform: skewX(7deg); } }
+@keyframes hand-wave {
+  0%, 100% { transform: skewX(0); }
+  15% { transform: skewX(-6deg); }
+  35% { transform: skewX(4.5deg); }
+  55% { transform: skewX(-4deg); }
+  75% { transform: skewX(2.5deg); }
+}
+@keyframes motion-line-flicker {
+  0%, 100% { opacity: 0; transform: translateY(0); }
+  20%, 55% { opacity: .8; transform: translateY(-2px); }
+  38%, 78% { opacity: .3; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-character [data-eye-left], .home-character [data-eye-right] { transform: none; }
+}
+@keyframes coffee-steam {
+  0%, 100% { opacity: .25; transform: translate(0, 5px); }
+  30% { opacity: .85; transform: translate(-2px, -3px); }
+  75% { opacity: .45; transform: translate(3px, -17px); }
+  95% { opacity: 0; transform: translate(1px, -22px); }
+}
 .writing-section { border-top: 1px solid var(--border); padding-top: 2rem; }
 .section-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-bottom: 1.75rem; }
 .empty-state { padding: 2.5rem 0 3rem; }

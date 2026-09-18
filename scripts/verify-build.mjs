@@ -1,6 +1,23 @@
 import { readFile, readdir, access } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+
+// Preserve the complete original compound ink (including every hollow contour).
+// The visible base and moving pieces must partition it with identical clip edges.
+function verifyInkPartition(html, prefix, regions, expectedHash) {
+  const ink = html.match(new RegExp(`<path id="${prefix}-ink"[^>]*d="([^"]+)"`))?.[1];
+  assert(ink, `Missing original ${prefix} ink`);
+  assert.equal(createHash('sha256').update(ink).digest('hex'), expectedHash, `${prefix} lost original contours`);
+  const clips = regions.map((region) => {
+    const clip = html.match(new RegExp(`<clipPath id="${prefix}-${region}"><path d="([^"]+)"`))?.[1];
+    assert(clip, `Missing ${region} clip`);
+    assert(html.includes(`clip-path="url(#${prefix}-${region})"><use href="#${prefix}-ink"`), `${region} must reuse complete ink`);
+    return clip;
+  });
+  assert(html.includes(`<clipPath id="${prefix}-base"><path clip-rule="evenodd" d="M0 0H1254V1254H0Z${clips.join('')}"`), `${prefix} base must exclude exactly the moving regions using clip-rule`);
+  assert.equal((html.match(new RegExp(`<use href="#${prefix}-ink" clip-path="url\\(#${prefix}-base\\)"`, 'g')) || []).length, 1, `${prefix} must paint exactly one clipped base`);
+}
 
 export async function verifyBuild(directory = 'dist') {
   const base = '/';
@@ -39,6 +56,7 @@ export async function verifyBuild(directory = 'dist') {
     const hasToc = html.includes('class="article-toc"');
     const isAbout = page === 'about/index.html';
     const isBlogIndex = page === 'blog/index.html';
+    const isHome = page === 'index.html';
     const scriptCount = (html.match(/<script\b/gi) || []).length;
     if (hasToc) {
       assert.equal(scriptCount, 1, `${page} has a TOC and should ship exactly one scrollspy script`);
@@ -65,12 +83,41 @@ export async function verifyBuild(directory = 'dist') {
       assert(!/Download PDF|tun-li-resume\.pdf|Technical Skills|View details/i.test(html), 'About must not expose old Resume/Work-era CV UI');
       assert(html.includes('id="about-more-toggle"') && html.includes('aria-controls="about-timeline"'), 'About is missing the More/Less timeline toggle');
       assert(html.includes('More <span aria-hidden="true">↓'), 'About "More" control should use a down arrow, not a navigation arrow');
-      assert(html.includes('images/sayhi.svg'), 'About should use the sayhi illustration');
+      // sayhi.svg is inlined (not <img src>) so the hand/wave animation can
+      // target its internal groups; check for that structure instead of a
+      // file path, plus the preserved accessible label.
+      assert(html.includes('id="about-character"') && html.includes('data-hand-left') && html.includes('data-hand-right'), 'About is missing the inlined sayhi illustration with animatable hand groups');
+      assert(html.includes('aria-label="Hand-drawn illustration of the site owner waving hello."'), 'About illustration lost its accessible label');
+      // Regression guards for the hand-duplication/black-fill/duplicate-
+      // motion-line bugs: exactly one hand element per side, each hand's own
+      // fill must be the artwork's ink color (never left at SVG's black
+      // default), and motion marks must be the artwork's existing accent
+      // strokes (reused in place), not a second hand-authored set.
+      assert((html.match(/data-hand-left="true"/g) || []).length === 1, 'About must have exactly one left-hand group (found duplicate hand geometry)');
+      assert((html.match(/data-hand-right="true"/g) || []).length === 1, 'About must have exactly one right-hand group (found duplicate hand geometry)');
+      assert(html.includes('data-motion-left="true"') && html.includes('data-motion-right="true"'), 'About is missing the reused motion-mark groups near each hand');
+      assert(!html.includes('class="motion-lines"'), 'About must not ship a second, separately-authored motion-line set');
+      verifyInkPartition(html, 'greeting', ['left', 'right'], 'b06dd4ea59b3a983cd5df7801f3ba06b45555b376fc0d011590650daf77b0f3f');
+      assert(/<div[^>]*id="about-character"[^>]*aria-hidden="true"/.test(html), 'Decorative greeting must not be an interactive control');
+      assert(!/<[^>]*id="about-character"[^>]*(?:tabindex|role)=/.test(html), 'Decorative greeting must not add a tab stop or interactive role');
+      for (const side of ['left', 'right']) {
+        const marks = html.match(new RegExp(`<g data-motion-${side}="true">([\\s\\S]*?)</g>`))?.[1] ?? '';
+        assert.equal((marks.match(/<path\b/g) || []).length, 3, 'Each hand should reuse exactly its three original motion marks');
+      }
       // The timeline is text-only now: no tag chips, no Education section,
       // no hover-highlighting hooks left over from the earlier iteration.
       assert(!/class="work-tag/.test(html), 'About timeline must not show technology tags');
       assert(!/class="education-list/.test(html), 'About timeline must not show a separate Education section');
       assert((html.match(/class="timeline-item"/g) || []).length > 0, 'About timeline is missing experience entries');
+    } else if (isHome) {
+      assert.equal(scriptCount, 1, `${page} should ship exactly one eye-tracking script`);
+      assert(!/<astro-island\b/i.test(html), 'Home must not ship a framework runtime');
+      // character.svg is inlined for the same reason as sayhi.svg above.
+      assert(html.includes('id="home-character"') && html.includes('data-eye-left') && html.includes('data-eye-right'), 'Home is missing the inlined character illustration with animatable eye groups');
+      assert(html.includes('aria-label="Hand-drawn developer with a blue-green hair tie, working at a laptop beside a cup of coffee."'), 'Home illustration lost its accessible label');
+      assert(html.includes('data-hair-lock="true"'), 'Home is missing the animatable hair lock');
+      verifyInkPartition(html, 'home-hair', ['lock'], 'a95fd86ce85b3727d647f9117948f9f4fa6a1d9e34b5e06a25e1a7587865eae8');
+      assert.equal((html.match(/data-steam="[12]"/g) || []).length, 2, 'Home must animate exactly the two original steam strokes');
     } else if (isBlogIndex) {
       assert.equal(scriptCount, 1, `${page} should ship exactly one filtering script`);
       assert(!/<astro-island\b/i.test(html), 'Blog index must not ship a framework runtime');

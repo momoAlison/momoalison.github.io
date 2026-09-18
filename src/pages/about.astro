@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import InlineSvg from '../components/InlineSvg.astro';
 import { site } from '../data/site';
 import { withBase } from '../lib/urls';
 import { experience } from '../data/work';
@@ -8,7 +9,7 @@ import { experience } from '../data/work';
   <div class="about-page">
     <header class="about-hero">
       <div class="about-intro"><p class="eyebrow">About</p><h1>{site.about.title}</h1><p>{site.about.introduction}</p></div>
-      <div class="character about-character"><img src={withBase('images/sayhi.svg')} width="1254" height="1254" alt="Hand-drawn illustration of the site owner waving hello." /></div>
+      <div class="character about-character" id="about-character" aria-hidden="true"><InlineSvg src="/images/sayhi.svg" /></div>
     </header>
 
     <section class="about-path" aria-labelledby="about-path-heading">
@@ -135,6 +136,26 @@ import { experience } from '../data/work';
           panel.hidden = expanded;
           if (!panel.hidden) updateScrollCount();
         });
+      }
+
+      // CSS handles the one-shot greeting. Ignore clicks during a wave;
+      // no forced layout, animation queue, or per-frame JavaScript.
+      const character = document.getElementById('about-character');
+      const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+      if (character) {
+        let waveTimeout: ReturnType<typeof setTimeout> | undefined;
+        const stopWave = () => {
+          clearTimeout(waveTimeout);
+          character.classList.remove('is-waving');
+        };
+        const playWave = () => {
+          if (motionPreference.matches || character.classList.contains('is-waving')) return;
+          character.classList.add('is-waving');
+          waveTimeout = setTimeout(stopWave, 1700);
+        };
+        motionPreference.addEventListener('change', stopWave);
+        character.addEventListener('click', playWave);
+        playWave();
       }
     </script>
   </div>

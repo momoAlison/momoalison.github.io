@@ -1,0 +1,12 @@
+---
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+interface Props { src: string; }
+const { src } = Astro.props;
+// process.cwd() is the project root for both `astro dev` and `astro build`;
+// import.meta.url would instead point at wherever Vite emits this
+// component's compiled chunk, which breaks in production builds.
+const filePath = join(process.cwd(), 'public', src);
+const svg = readFileSync(filePath, 'utf8').replace(/^<\?xml[^>]*\?>\s*/, '');
+---
+<Fragment set:html={svg} />
