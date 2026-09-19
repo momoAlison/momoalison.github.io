@@ -22,6 +22,52 @@ const toc = headings.filter(({ depth }) => depth === 2 || depth === 3);
     // headings/`.prose`, never on blog-specific data, so reusing it here adds
     // no coupling to blog metadata.
     const tocEl = document.querySelector<HTMLElement>('.article-toc');
+
+    // Compact rail (600-1104px width; below 600px a CSS-only rule always
+    // shows H2-only instead, so this is naturally a no-op there): the
+    // strokes render at the original fixed spacing by default. If the full
+    // H2+H3 list actually overflows the rail's max-height on THIS
+    // viewport's real available height, scale gap/stroke-height/
+    // group-margin down by just enough to fit — not a fixed compression
+    // amount, so a short article (or simply a tall window) keeps the
+    // original spacing, and only a genuinely tight fit compresses at all.
+    // Re-measured on resize since "does it fit" depends on actual height.
+    const strokesEl = tocEl?.querySelector<HTMLElement>('.toc-strokes') ?? null;
+    if (strokesEl) {
+      const SCALE_FLOOR = 0.12;
+      const scaleStrokesToFit = () => {
+        strokesEl.style.removeProperty('--toc-scale');
+        const available = strokesEl.clientHeight;
+        if (strokesEl.scrollHeight <= available) return; // fits at full size already
+        // Binary search for the largest scale that fits, instead of computing
+        // one ratio from the full-size height: the stroke-height/margin
+        // floors (the max()s in global.css) mean height stops responding
+        // linearly to scale once enough strokes hit their floor — with 60+
+        // headings, most of them do — so a single ratio-based estimate can
+        // land far short (verified: converged on a visibly still-overflowing
+        // result). Measuring "does it fit" directly at each candidate scale
+        // sidesteps that nonlinearity entirely.
+        let lo = SCALE_FLOOR;
+        let hi = 1;
+        for (let i = 0; i < 14; i++) {
+          const mid = (lo + hi) / 2;
+          strokesEl.style.setProperty('--toc-scale', String(mid));
+          if (strokesEl.scrollHeight > available) hi = mid; else lo = mid;
+        }
+        // Leaves --toc-scale at `lo`, the largest tested value that fit. If
+        // even SCALE_FLOOR doesn't fit, that's still what's applied — the
+        // .toc-strokes overflow-y: auto in global.css is the safety net.
+        strokesEl.style.setProperty('--toc-scale', String(lo));
+      };
+      scaleStrokesToFit();
+      let strokesResizeTicking = false;
+      window.addEventListener('resize', () => {
+        if (strokesResizeTicking) return;
+        strokesResizeTicking = true;
+        requestAnimationFrame(() => { scaleStrokesToFit(); strokesResizeTicking = false; });
+      }, { passive: true });
+    }
+
     const headings = tocEl
       ? [...document.querySelectorAll<HTMLElement>('.prose h2[id], .prose h3[id]')]
         .filter((h) => tocEl.querySelector(`[data-slug="${h.id}"]`))

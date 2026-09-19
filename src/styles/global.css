@@ -394,16 +394,42 @@ img { max-width: 100%; height: auto; }
   .toc-compact { display: block; }
   .toc-compact summary { cursor: pointer; list-style: none; padding-block: .75rem; min-height: 44px; }
   .toc-compact summary::-webkit-details-marker { display: none; }
-  .toc-strokes { display: flex; flex-direction: column; align-items: flex-end; gap: 9px; max-height: 40vh; overflow: hidden; }
-  .toc-stroke { display: block; flex: 0 1 3px; min-height: 2px; width: 19px; background: var(--secondary); opacity: .38; border-radius: 1px; transition: opacity .15s, width .15s; }
+  /* Each stroke carries its own margin instead of a uniform container gap,
+     so a new top-level (H2) section gets a bigger break (10px) than the
+     regular spacing between siblings under it (4px) — including on phone,
+     where H3s are hidden and almost every visible mark is itself a new H2
+     section, so this naturally comes out to the bigger 10px rhythm there
+     too, with no separate phone-specific value needed. Both are fixed
+     defaults; --toc-scale is only set (by the script below) when the full
+     list actually overflows the max-height on THIS viewport's real
+     available height, and scales both down by just enough to fit.
+     overflow-y: auto (not hidden) is kept only as a safety net for a
+     pathological case even that can't fit. */
+  .toc-strokes { display: flex; flex-direction: column; align-items: flex-end; max-height: 40vh; overflow-y: auto; overflow-x: visible; scrollbar-width: none; }
+  .toc-strokes::-webkit-scrollbar { display: none; }
+  /* No margin-top in this transition: the fit-check script below reads
+     scrollHeight synchronously right after setting --toc-scale (including
+     repeatedly, in a tight binary-search loop), and an animated margin
+     would still be mid-transition at read time, corrupting every
+     measurement after the first. */
+  .toc-stroke { display: block; flex: 0 1 max(2px, calc(3px * var(--toc-scale, 1))); min-height: 2px; width: 19px; background: var(--secondary); opacity: .38; border-radius: 1px; margin-top: max(1px, calc(4px * var(--toc-scale, 1))); transition: opacity .15s, width .15s; }
+  .toc-stroke:first-child { margin-top: 0; }
   .toc-stroke-short { width: 11px; opacity: .26; }
-  .toc-stroke.toc-group-start { margin-top: 24px; }
+  .toc-stroke.toc-group-start { margin-top: max(2px, calc(10px * var(--toc-scale, 1))); }
   .toc-stroke.active { background: var(--accent); opacity: 1; width: 24px; }
   .toc-stroke-short.active { width: 15px; }
   .toc-stroke.active-parent { opacity: .55; }
   .toc-compact summary:focus-visible .toc-stroke { opacity: .7; }
   .toc-panel { position: absolute; right: 100%; top: 0; width: min(320px, calc(100vw - 84px)); max-height: min(70vh, 36rem); overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 4px 16px #2426240d; }
   .toc-compact:focus-within::details-content { content-visibility: visible; }
+}
+@media (max-width: 600px) {
+  /* Phone: always H2-only. No spacing override needed — with H3s hidden,
+     almost every remaining mark is itself a toc-group-start (a new H2
+     section), so the 10px group-start margin above already applies
+     uniformly here. Compression (if it were ever needed) still applies via
+     the same --toc-scale mechanism as the 600-1104px tier. */
+  .toc-stroke-short { display: none; }
 }
 @media (max-width: 1104px) and (hover: hover) {
   .toc-compact:hover::details-content { content-visibility: visible; }
