@@ -9,7 +9,7 @@ draft: false
 
 This course provides a brief introduction to the syntax of AI tools and LangChain, starting from Function Calling and culminating in the implementation of a simple chat agent.
 
-The code examples from the original course have been updated to reflect the latest LangChain versions, which offer more streamlined methods. Additionally, the examples now use the `gpt-4o-mini` model, which is more cost-effective than `gpt-3.5-turbo`.
+The code examples from the original course have been updated to use current LangChain/LangGraph APIs — import paths and object usage checked against `langgraph` 0.6.x and `langchain-core` 0.3.x as of 2026-09-21. Note that LangChain's `create_agent` (LangChain v1, built directly on LangGraph) is now the officially recommended entry point for building agents; the hand-built `StateGraph` approach used later in this post predates that API, but remains valid and arguably more useful for understanding what's actually happening under the hood. Additionally, the examples now use the `gpt-4o-mini` model, which is more cost-effective than `gpt-3.5-turbo`.
 
 **Study Resource:**
 [Functions, Tools and Agents with LangChain](https://learn.deeplearning.ai/courses/functions-tools-agents-langchain/lesson/rtwb1/introduction)
@@ -27,7 +27,6 @@ graph TD
     classDef legacy fill:#b2bec3,stroke:#636e72,stroke-width:2px,stroke-dasharray: 5 5;
     classDef tool fill:#00b894,stroke:#55efc4,stroke-width:2px,color:#fff;
     classDef Finish fill:#6c5ce7,stroke:#6c5ce7,stroke-width:2px,color:#fff;
-    classDef Action fill:#e17055,stroke:#e17055,stroke-width:2px,color:#fff;
     classDef diamond fill:#a29bfe,stroke:#6c5ce7,stroke-width:2px;
 
     %% ==========================================
@@ -38,33 +37,33 @@ graph TD
 
     subgraph sg1 [Tools and Equipment]
         Tools[(Tools Arsenal)]
-        OldAPI[Legacy OpenAPI Specs]
+        OldAPI[OpenAPI Specs]
         NewTool["@tool Decorator"]
     end
 
     subgraph sg2 [Output Routing]
-        Router{Model Decision}
-        FinishFinish[AgentFinish]
-        ActionAction[AgentAction]
+        Router{Has tool_calls?}
+        FinalAnswer[Final Text Response]
     end
 
     AgentArch{Agent Architecture Engine}
 
-    subgraph sg3 [Legacy: LangChain v0.1]
+    subgraph sg3 [Legacy: AgentExecutor Architecture]
         Executor[AgentExecutor]
+        ActionFinish["Parsed as AgentAction / AgentFinish"]
         Scratchpad(Agent Scratchpad)
         ConvMem(ConversationBufferMemory)
     end
 
-    subgraph sg4 [Modern: LangGraph v0.2+]
-        Graph[StateGraph / DAG]
-        
+    subgraph sg4 [Modern: LangGraph Runtime]
+        Graph[StateGraph]
+
         subgraph sg4a [State Management]
             StateNode[State Flow]
             NodesNode[Nodes: Agent and Tool]
             EdgesNode[Edges: tools_condition]
         end
-        
+
         subgraph sg4b [State Persistence]
             PersistenceNode[Persistence]
             MemorySaverNode[MemorySaver]
@@ -76,30 +75,29 @@ graph TD
     %% Safe Links
     %% ==========================================
     Start --> LLM
-    
-    OldAPI -.->|Incompatible 500 Tools| Tools
+
+    OldAPI -->|At Scale, Needs Conversion| Tools
     NewTool -->|Native JSON Schema| Tools
-    
+
     LLM <-->|JSON Tool Calling| Tools
-    
+
     Tools --> Router
-    Router -->|Direct Response| FinishFinish
-    Router -->|Parameter Instructions| ActionAction
-    
-    ActionAction --> AgentArch
-    
+    Router -->|No| FinalAnswer
+    Router -->|Yes| AgentArch
+
     AgentArch -.->|Deprecated| Executor
+    Executor -.->|Represented As| ActionFinish
     Executor -.->|Black-box Loop| Scratchpad
     Executor -.->|Fragile| ConvMem
-    
-    AgentArch -->|Modern Standard| Graph
-    
+
+    AgentArch -->|Now Built On| Graph
+
     Graph -->|State Management| StateNode
     Graph -->|State Persistence| PersistenceNode
-    
-    StateNode -->|add_messages| NodesNode
+
+    StateNode -->|add_messages reducer| NodesNode
     StateNode -->|Auto Routing| EdgesNode
-    
+
     PersistenceNode --> MemorySaverNode
     PersistenceNode --> ThreadNode
 
@@ -107,14 +105,14 @@ graph TD
     %% Apply Styles
     %% ==========================================
     class LLM core;
-    class Tools,NewTool tool;
-    class OldAPI legacy;
+    class Tools,NewTool,OldAPI tool;
     class Router,AgentArch diamond;
-    class Executor,Scratchpad,ConvMem legacy;
+    class Executor,Scratchpad,ConvMem,ActionFinish legacy;
     class Graph,StateNode,PersistenceNode,NodesNode,EdgesNode,MemorySaverNode,ThreadNode modern;
-    class FinishFinish Finish;
-    class ActionAction Action;
+    class FinalAnswer Finish;
 ```
+
+**A quick note on the "Tools and Equipment" corner of the diagram** — it's easy to read `OpenAPI Specs`, `@tool Decorator`, and `JSON Tool Calling` as three parallel/equal inputs. They're not. `OpenAPI Specs` and `@tool Decorator` are two different *sources* for defining a tool (an HTTP API spec vs. a Python function) — neither is more "legacy" than the other, they're just different formats — and both end up as a tool schema in the `Tools Arsenal`. `JSON Tool Calling` is a different thing entirely: it's the double arrow between the LLM and the Tools Arsenal, representing two separate moments that happen at *runtime*, not at definition time — the LLM receives tool schemas (definition → model), and separately, the LLM sends back a tool call request (model → definition, i.e. "call this one, with these arguments"). Defining a tool and calling a tool are different steps in the lifecycle; it's easy to conflate them at a glance.
 
 ---
 
@@ -132,16 +130,16 @@ Function Calling acts as a bridge, allowing the Large Language Model (LLM) to re
 
 **2. What is the Essence of Function Calling?**
 
-Function calling isn't a separate reasoning mechanism; it’s an interface pattern. Models like `gpt-4o-mini` were extensively fine-tuned on datasets containing "tool descriptions" paired with "standard JSON outputs." This training taught the model exactly how to format its response when it detects that tools are available.
+Function calling isn't a separate reasoning mechanism; it's an interface pattern. Models like `gpt-4o-mini` are generally understood to be fine-tuned on datasets pairing "tool descriptions" with "standard JSON outputs" — this is a reasonable inference from how tool-calling models behave, not a detail OpenAI has published for its hosted models. Either way, the practical result is that the model knows how to format its response when it detects that tools are available.
 
-To truly understand how this works under the hood, it helps to contrast the old way with the new:
+To build intuition for how this works, it helps to contrast the old way with the new:
 
 * **The Legacy Way (ReAct Pattern):** In older frameworks, tools were manually injected into the System Prompt as plain text. Developers could simply `print(prompt)` locally and see the exact instructions (e.g., *"You have access to the following tools..."*) being sent to the model.
-* **The Modern Way (Native APIs):** Today, libraries send `messages` and `tools` (JSON schemas) as two separate, cleanly formatted fields to OpenAI's servers. Milliseconds before inference, OpenAI’s backend uses a proprietary template to invisibly merge your JSON tools and chat history into a single massive string. 
+* **The Modern Way (Native APIs):** Today, libraries send `messages` and `tools` (JSON schemas) as two separate, cleanly formatted fields to OpenAI's servers. It's reasonable to assume the backend merges these into a single prompt before inference, similar to how open-weight models with public chat templates work — but OpenAI hasn't published the exact internal format for its hosted models, so treat this as a conceptual model rather than a confirmed detail.
 
-Because this final prompt assembly happens entirely on closed-source servers, **it is now an implementation detail.** We can no longer intercept or print this final "plain text string" in our local Python environment.
+Because this final prompt assembly happens entirely on closed-source servers (to whatever extent our assumption above is accurate), **it is effectively an implementation detail either way.** We can no longer intercept or print a final "plain text string" in our local Python environment.
 
-Here is an example,
+Here is an illustrative reconstruction of what that merged prompt conceptually might look like — not a captured real request:
 
 
 ```python
@@ -482,7 +480,7 @@ This example uses RAG (Retrieval-Augmented Generation) to demonstrate complex in
 
 > Note: The course originally used `RunnableMap`. `RunnableParallel` is the modern, conceptually clearer replacement.
 
-We use `RunnablePassthrough` to pass user input directly through the parallel branches without modification.
+Both branches run concurrently: `context` comes from calling the retriever, and `question` needs to end up as the plain string itself — we use `itemgetter` to extract just that value from the input dict, so it doesn't get double-wrapped when it reaches the prompt.
 
 **Analogies:**
 
@@ -492,9 +490,10 @@ We use `RunnablePassthrough` to pass user input directly through the parallel br
 
 **Code Example:**
 ```python
+from operator import itemgetter
 from langchain_community.vectorstores import DocArrayInMemorySearch
 from langchain_openai import OpenAIEmbeddings
-from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+from langchain_core.runnables import RunnableParallel
 
 # 1. Setup Retrieval (Vector Database in memory)
 # Requires 'docarray' and 'tiktoken' packages
@@ -515,10 +514,10 @@ prompt_rag = ChatPromptTemplate.from_template(template)
 # 3. Compose RAG Chain
 # RunnableParallel executes the dictionary branches concurrently.
 # input_dict["question"] -> goes to context branch (retriever)
-# input_dict["question"] -> goes to question branch (passthrough)
+# input_dict["question"] -> goes to question branch (itemgetter extracts the plain string)
 chain_rag = RunnableParallel({
     "context": lambda x: retriever.invoke(x["question"]), # Updates to standard invoke
-    "question": RunnablePassthrough() # Passes through input untouched
+    "question": itemgetter("question") # Extracts just the string, not the whole dict
 }) | prompt_rag | model | output_parser
 
 # Invoke
@@ -530,13 +529,13 @@ print("RAG Result:", chain_rag.invoke({"question": "where did harrison work?"}))
 RAG Result: Harrison worked at Kensho.
 ```
 
-Here is the result of RunnableParallel
+Here is the result of RunnableParallel — note `question` is now the plain string that actually gets inserted into the `{question}` placeholder, not a nested dict:
 ```
 context: [Document(metadata={}, page_content='harrison worked at kensho'), Document(metadata={}, page_content='bears like to eat honey')]
-question: {'question': 'where did harrison work?'}
+question: where did harrison work?
 ```
 
-In modern LCEL, passing a direct string (`chain.invoke("...")`) combined with `RunnablePassthrough()` is generally preferred for simple queries. However, if multiple variables are required, passing a dictionary and extracting values using `itemgetter` is the standard approach.
+For a single-variable chain like this, passing a direct string (`chain.invoke("...")`) combined with `RunnablePassthrough()` is also a valid, even simpler option. `itemgetter` becomes the standard approach once multiple variables are involved, as shown above.
 
 ---
 
@@ -609,15 +608,36 @@ It first attempts `simple_chain`. If that fails (e.g., API is down, model rate l
 
 ---
 
-### Architecture Insights: API vs. LCEL vs. LangGraph
+### Architecture Insights: When to Use What, and How the Pieces Stack
 
 **1. Native API vs. LangChain**
 * **Use Native API when:** You are building simple scripts, require absolute control over prompts, or need maximum performance and the lowest latency without framework overhead.
 * **Use LangChain when:** You are building complex workflows (like RAG), utilizing various third-party integrations, or need seamless model swapping (e.g., switching from OpenAI to DeepSeek without rewriting the core pipeline).
 
-**2. LangChain (LCEL) vs. LangGraph**
-* **LangChain (LCEL):** Operates as a **Pipeline (Directed Acyclic Graph - DAG)**. Data flows sequentially in one direction. It is perfect for linear execution but inherently lacks the ability to loop.
-* **LangGraph:** Operates as a **State Machine**. It was designed specifically to build true autonomous Agents. Unlike LCEL, LangGraph natively supports `while` loops, conditional routing, and cyclic execution (Think → Act → Observe → Repeat), completely replacing the rigid, black-box `AgentExecutor` of the past.
+**2. LCEL vs. LangGraph — Different Layers, Not Competing Choices**
+These aren't mutually exclusive alternatives — LCEL is a small part of LangChain, not a stand-in for it, and it's common to use an LCEL chain as one node *inside* a LangGraph graph:
+* **LCEL:** Operates as a **Pipeline (Directed Acyclic Graph — DAG)**. Data flows in one direction — sequentially or across parallel branches. It's perfect for composing linear steps (a prompt into a model into a parser) but inherently lacks the ability to loop.
+* **LangGraph:** Operates as a **State Machine**. It was designed specifically to orchestrate the stateful, cyclic control flow autonomous Agents need — conditional routing and cyclic execution (Think → Act → Observe → Repeat) that LCEL can't express on its own. This is what replaced the rigid, black-box `AgentExecutor` of the past — and, as covered earlier in this post, it's also what LangChain's own `create_agent` is now built directly on top of.
+
+**3. Putting It Together: What LangChain Actually Is**
+LangChain isn't just "LCEL" or just `create_agent` — it's three layers stacked on each other, and it helps to see the whole shape at once:
+
+```
+LangChain
+├── Components & Integrations
+│   (model wrappers, prompt templates, tools, retrievers,
+│    memory, document loaders, output parsers — what most
+│    of this post's examples before this section actually construct)
+│
+├── LCEL / Runnable composition
+│   (pipes those components into linear/branching pipelines)
+│
+└── create_agent(...)
+    └── built directly on LangGraph
+        (stateful, cyclic agent runtime)
+```
+
+Most of what this post covers before this section — the `@tool` decorator, Pydantic schemas, `with_structured_output`, prompt templates — lives in that bottom **Components** layer. LCEL is the syntax for composing them into pipelines; `create_agent`/LangGraph is what you reach for once that composition needs to loop.
 
 ## **OpenAI Function Calling with LangChain & Pydantic**
 
@@ -673,11 +693,14 @@ chain = prompt | model_with_tools
 response_tool = chain.invoke({"input": "what is the weather in sf?"})
 print("🤖 Test 1 - Model decided to call a tool:")
 print(json.dumps(response_tool.tool_calls, indent=2, ensure_ascii=False))
+```
 
-# --- Test Case 2: Model decides to answer directly (tool_choice="auto") ---
+```python
+# --- Test Case 2: could plausibly go either way — ArtistSearch is bound too ---
 response_chat = chain.invoke({"input": "what are three songs by taylor swift?"})
-print("\n💬 Test 2 - Model bypassed tools and answered directly:")
-print(response_chat.content)
+print("\n💬 Test 2 - Checking whether the model called a tool:")
+print("Tool calls:", response_chat.tool_calls)
+print("Content:", response_chat.content)
 ```
 
 **Execution Logs**
@@ -734,12 +757,14 @@ print(response_chat.content)
   }
 ]
 
-💬 Test 2 - Model bypassed tools and answered directly:
+💬 Test 2 - Checking whether the model called a tool:
 ```
+
+*(No captured output shown for Test 2. `ArtistSearch` is bound alongside `WeatherSearch`, and the question names an artist — so under the default `tool_choice="auto"`, the model might answer directly or might call `ArtistSearch` instead; check the actual `tool_calls` and `content` values to see which branch it took.)*
 
 ## **Tagging and Extraction (Modern LangChain)**
 
-We can leverage Large Language Models (LLMs) to automatically comprehend natural language, apply specific tags, extract targeted information, and guarantee the output strictly adheres to our desired formatting.
+We can leverage Large Language Models (LLMs) to automatically comprehend natural language, apply specific tags, extract targeted information, and — when a call succeeds — get output that's validated against our desired schema. (More on what that does and doesn't cover below.)
 
 **1. The Revolution of `.with_structured_output()`**
 In this section, we utilize the modern `.with_structured_output()` method, which drastically improves the developer experience:
@@ -753,12 +778,19 @@ Structurally, Tagging and Extraction look identical (both use Pydantic classes),
 * **Tagging (Classification):** Focuses on semantic understanding. The classes define abstract attributes (e.g., `sentiment`, `language`, `tone`), asking the LLM to make a subjective or categorical judgment about the text.
 * **Extraction (Entity Recognition):** Focuses on pulling explicit facts. The classes use concrete keys (e.g., `name`, `age`, `location`). Here, the LLM acts as a high-powered regex, pulling out specific data without adding subjective interpretation.
 
+**3. What "Structured Output" Actually Guarantees — and What It Doesn't**
+These are three separate claims, and it's worth keeping them apart:
+
+* **Schema compliance:** *if* the call succeeds, the parsed result is validated against your Pydantic model's types. That's not the same as every call being guaranteed to succeed — [LangChain's own docs](https://docs.langchain.com/oss/python/langchain/structured-output) say plainly that "models can make mistakes when generating structured output." (That page is specifically about structured output *with agents* via `create_agent`, which is a different code path than the plain `model.with_structured_output(...)` used in the examples below — so don't assume the automatic retry-on-validation-failure behavior described there applies here too; it doesn't, unless you're going through an agent.) And even a successful, schema-valid parse doesn't mean the *content* is factually correct — see the next point.
+* **Business constraints:** e.g. `sentiment` really being one of `pos`/`neg`/`neutral` — this is **not** guaranteed by a plain `str` field. A description like `"should be pos, neg, or neutral"` is a hint to the model, not a validation rule; the schema itself still accepts any string. (I checked this directly: a `str` field happily accepts a value like `"extremely_happy_banana"` with no error.) If a field truly has a fixed set of valid values, use `Literal["pos", "neg", "neutral"]` instead — that actually shows up as an `enum` in the generated JSON schema, which the model is far more likely to respect, and Pydantic will reject anything else.
+* **Extraction correctness:** whether the model actually found and returned every fact that was present in the text — schema and business constraints don't guarantee this either, as the map-reduce chunking example earlier in this post demonstrates (Martha's age went missing, and the schema had no way to catch that).
+
 ---
 
 ### Tagging and Extraction
 
 ```python
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -772,7 +804,7 @@ model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 # ==========================================
 class Tagging(BaseModel):
     """Tag the piece of text with particular info."""
-    sentiment: str = Field(description="sentiment of text, should be `pos`, `neg`, or `neutral`")
+    sentiment: Literal["pos", "neg", "neutral"] = Field(description="sentiment of text")
     language: str = Field(description="language of text (should be ISO 639-1 code)")
 
 tagging_chain = model.with_structured_output(Tagging)
@@ -820,8 +852,8 @@ people=[Person(name='Joe', age=30), Person(name='Martha', age=None)]
 
 **The Solution:** We use tools like `RecursiveCharacterTextSplitter` to break the document into smaller, digestible chunks.
 
-**The Magic of LCEL Concurrency:**
-Using `extraction_chain.map()` is one of the most stunning features of LangChain Expression Language (LCEL). If you pass a list of 10 text chunks to it, LCEL doesn't process them one by one. Under the hood, it **automatically fires off 10 concurrent network requests** to process all chunks in parallel, drastically slashing the total execution time.
+**LCEL Concurrency:**
+`extraction_chain.map()` applies the chain to every item in a list via `.batch()` under the hood, which parallelizes by default rather than processing chunks one by one — a real speedup over a naive loop. How much parallelism you actually get depends on `max_concurrency`, the provider's rate limits, and the runtime — so treat "N chunks, N requests at once" as a useful mental model for small batches, not a guarantee. Production code typically caps concurrency deliberately (`max_concurrency` in the batch config) rather than leaving it unbounded, to avoid tripping the provider's own rate limits.
 
 ```python
 # ==========================================
@@ -851,6 +883,19 @@ print(result3)
 🗺️ Map Extraction:
 [Person(name='Joe', age=30), Person(name='Martha', age=None), Person(name='Alice', age=25)]
 ```
+
+**Why is Martha's age missing?** This isn't a random failure — it's chunking doing exactly what chunking does, and it's worth understanding rather than skipping past. I split `sample_text` with this exact `chunk_size=20` and checked the actual boundaries:
+
+```
+Chunk 0: 'Joe is 30. Martha is'
+Chunk 1: '50. Alice is 25.'
+```
+
+"Martha is" and "50" land in two different chunks. Each chunk gets extracted **independently** — the model processing chunk 1 sees `"50. Alice is 25."` with no name attached to `50` at all, and the prompt explicitly says *"if not explicitly provided do not guess."* So it correctly leaves Martha's age out, since from its isolated view, that number genuinely isn't attached to anyone.
+
+This is the real tradeoff behind map-reduce chunking: parallelizing extraction is fast, but any fact that happens to straddle a chunk boundary can be silently lost, with no error raised. In production, this argues for chunk sizes generous enough to keep related facts together (or overlapping chunks, via `chunk_overlap`), not just whatever number happens to demo well.
+
+`chunk_overlap` is the standard fix — giving adjacent chunks some shared text so a fact near a boundary shows up intact in at least one of them. The tradeoff: overlapping chunks mean the same entity can get extracted twice, so you then need a merge/deduplication step over the results. Beyond overlap, production systems also generally prefer *structure-aware* chunking — splitting on paragraph or section boundaries instead of a raw character count — over just shrinking `chunk_size`. This is a big enough topic (overlap tuning, structure-aware splitting, proper reduce/reconciliation instead of a plain `flatten`) to deserve its own post — I'll link one here if I write it.
 
 ## **Tools and Routing**
 
@@ -921,18 +966,21 @@ Local Tool Test: The current temperature is 36.5°C
 
 ### An API Example
 
-**The API Dilemma: Why converting APIs to Tools doesn't scale**
+**The API Dilemma: Why giving a model every endpoint at once doesn't scale**
 
-Converting APIs into tools works perfectly for 2-3 functions. However, this approach hits a catastrophic bottleneck in real-world scenarios (e.g., an OpenAPI spec with 500+ endpoints).
+Handling a handful of endpoints as tools is fine. The problem starts once there are hundreds — e.g. an OpenAPI spec with 500+ endpoints — and the naive approach tries to hand the model all of them upfront.
 
 > **Note:** The original course used `openapi_spec_to_openai_fn` to blindly convert every single API endpoint into a distinct OpenAI Tool. We have completely abandoned this approach in favor of `create_openapi_agent`. Here is why:
 
-* **The Legacy Approach (Static Full Binding):** Forces 500 endpoints into 500 dedicated JSON schemas and binds them all to the LLM at once. 
-  * **Token Explosion:** Injects 500 schemas into the system prompt on *every turn*, instantly overflowing the context window and skyrocketing costs.
-  * **Choice Paralysis:** Faced with 500 highly similar tools, the model's attention mechanism degrades, leading to severe hallucinations and incorrect arguments.
+* **The Legacy Approach (Static Full Binding):** Forces every endpoint into its own JSON schema, bound to the LLM all at once.
+  * **Token Explosion:** all 500 schemas ride along in every prompt — can overflow the context window and meaningfully raise cost, depending on schema size and the model's context limit.
+  * **Choice Paralysis:** hundreds of near-identical tools push the model toward wrong-argument hallucinations.
+* **The Dynamic Retrieval Approach:** `create_openapi_agent` skips per-endpoint schemas entirely. It compresses the spec into text and gives the model just a couple of generic tools (`requests_get`, `requests_post`) — the model reads the compressed spec like documentation, plans the right endpoint and parameters, then executes through the generic HTTP tool.
+  * **Worth knowing:** this only modernizes *how the docs reach the model* — not the agent's execution architecture. `create_openapi_agent` still builds a classic `AgentExecutor` under the hood (`ZeroShotAgent` + `LLMChain`), the same pattern this article calls deprecated elsewhere. Tool-provisioning and execution architecture are separate axes; only one moved here.
 
-* **The Modern Approach (Agentic Dynamic Retrieval):** Instead of generating 500 distinct tools, the modern `create_openapi_agent` compresses the API spec into text and provides the model with only a few generic tools (e.g., `requests_get`, `requests_post`). 
-  * **How it works:** The model acts as a smart engineer. It reads the compressed spec as a document to find the correct endpoint and parameters, and then uses a generic HTTP tool to execute the request.
+**Not OpenAI-specific — but "any model works" overstates it.** `create_openapi_agent` takes `llm: BaseLanguageModel`, not `ChatOpenAI` (`init_chat_model()` is the current way to swap providers), so it's not tied to a provider by type. But underneath, it builds a classic `ZeroShotAgent` whose output parser (`MRKLOutputParser`) expects the model's raw completion to literally match a `Thought:`/`Action:`/`Action Input:`/`Final Answer:` text template — this is a ReAct pattern, not native tool-calling. A model that doesn't reliably follow that format doesn't just pick worse endpoints; parsing can throw an `OutputParserException` outright. So: swappable in principle, but swapping models still means checking the new one actually produces parseable ReAct-style output. Building this yourself instead? Model choice and how the API reaches the model (plain-text docs + a parser like this vs. converted schemas + `bind_tools()`) stay two independent decisions, regardless of provider.
+
+**Even "compress into text" has a ceiling.** At real scale, production systems usually don't feed the model any form of the full spec — they treat tool *selection* as its own retrieval problem: index the endpoints, retrieve just the relevant few (keyword or semantic search), and only then generate schemas for that shortlist. Tool *definition* and tool *selection* are genuinely separate problems — the Token Explosion and Choice Paralysis issues above are really about conflating them.
 
 ```python
 from langchain_community.utilities.openapi import OpenAPISpec
@@ -1153,30 +1201,38 @@ agent_executor.invoke("what are three pets names")
 🤖 Modern Agent is starting execution:
 
 
-> Entering new AgentExecutor chain...
-Action: api_planner  
-Action Input: I need to find the right API calls to retrieve the names of three pets.  
-Observation: 1) The user query can be solved by the API documented below, as it involves retrieving information about pets.
+> Entering new AgentExecutor chain...
+Action: api_planner
+
+Action Input: I need to find the right API calls to retrieve the names of three pets.
+
+Observation: 1) The user query can be solved by the API documented below, as it involves retrieving information about pets.
 
 2) Plan:
    1. GET /pets to retrieve a list of all pets.
    2. From the response, extract the names of the first three pets.
 
-(Note: The API does not specify a limit on the number of pets returned, so we assume it will return enough data to extract three names.)
-Thought:I am ready to execute the API calls.  
-Action: api_controller  
-Action Input: 1) GET /pets to retrieve a list of all pets.  
+(Note: The API does not specify a limit on the number of pets returned, so we assume it will return enough data to extract three names.)
+Thought:I am ready to execute the API calls.
 
-> Entering new AgentExecutor chain...
-Action: requests_get  
-Action Input: {"url":"http://petstore.swagger.io/v1/pets","params":{},"output_instructions":"Extract the id(s) and name(s) of the pets."}  
-Observation: The API response indicates a "404 Not Found" error. This means that the requested resource could not be found. 
+Action: api_controller  
+Action Input: 1) GET /pets to retrieve a list of all pets.
+
+
+> Entering new AgentExecutor chain...
+Action: requests_get
+
+Action Input: {"url":"http://petstore.swagger.io/v1/pets","params":{},"output_instructions":"Extract the id(s) and name(s) of the pets."}
+
+Observation: The API response indicates a "404 Not Found" error. This means that the requested resource could not be found.
+
 
 Summary of the error: 
 - Error Code: 404
 - Error Message: Not Found
-- Server: nginx
-Thought:I encountered a "404 Not Found" error when trying to access the `/pets` endpoint. This suggests that the endpoint may not exist or there may be an issue with the API URL. 
+- Server: nginx
+Thought:I encountered a "404 Not Found" error when trying to access the `/pets` endpoint. This suggests that the endpoint may not exist or there may be an issue with the API URL.
+
 
 To troubleshoot, I will double-check the base URL and the endpoint path. The base URL is `http://petstore.swagger.io/v1`, and the endpoint for retrieving pets is `/pets`. 
 
@@ -1185,59 +1241,73 @@ Since the endpoint appears to be correct, I will attempt to access the base URL 
 Plan: 1) GET the base URL to check if the server is reachable and to see available endpoints.
 Thought:
 Action: requests_get  
-Action Input: {"url":"http://petstore.swagger.io/v1","params":{},"output_instructions":"Check if the server is reachable and list available endpoints."}  
-Observation: The API response indicates an error with a "404 Not Found" status. This means that the requested resource or endpoint is not available on the server. 
+Action Input: {"url":"http://petstore.swagger.io/v1","params":{},"output_instructions":"Check if the server is reachable and list available endpoints."}
+
+Observation: The API response indicates an error with a "404 Not Found" status. This means that the requested resource or endpoint is not available on the server.
+
 
 Summary of the error:
 - **Error Code**: 404
 - **Error Message**: Not Found
 - **Server**: nginx
 
-Since the server is not reachable for the requested endpoint, there are no available endpoints to list.
-Thought:I encountered a "404 Not Found" error when trying to access both the `/pets` endpoint and the base URL. This indicates that the server is not responding correctly to the requests, and the endpoints I am trying to access may not exist or the server may be down.
+Since the server is not reachable for the requested endpoint, there are no available endpoints to list.
+Thought:I encountered a "404 Not Found" error when trying to access both the `/pets` endpoint and the base URL. This indicates that the server is not responding correctly to the requests, and the endpoints I am trying to access may not exist or the server may be down.
 
 Given that I cannot retrieve any information from the API due to these errors, I cannot proceed with any further API calls or actions.
 
-Final Answer: I am unable to complete the API calls due to a "404 Not Found" error for both the `/pets` endpoint and the base URL. The server may be down or the endpoints may not exist.
+Final Answer: I am unable to complete the API calls due to a "404 Not Found" error for both the `/pets` endpoint and the base URL. The server may be down or the endpoints may not exist.
 
-> Finished chain.
+> Finished chain.
 
-Observation: I am unable to complete the API calls due to a "404 Not Found" error for both the `/pets` endpoint and the base URL. The server may be down or the endpoints may not exist.
-Thought:I need to reassess the situation since the initial API call to retrieve pet names resulted in a "404 Not Found" error. This could mean that the endpoint is incorrect or that there are no pets available. I should check if there are alternative endpoints or methods to retrieve pet names.
-
-Action: api_planner  
-Action Input: I need to explore the available API endpoints to find a valid way to retrieve pet names.  
-Observation: Sorry, this API's domain is focused on pets, but it does not provide a specific endpoint to retrieve a list of pet names. The available endpoints are for getting all pets, posting new pets, and getting details of a specific pet by ID.
-Thought:I need to find a specific pet by ID to retrieve its name, as the general endpoint for retrieving all pets is not functioning. I will plan to get the details of a specific pet instead. 
+Observation: I am unable to complete the API calls due to a "404 Not Found" error for both the `/pets` endpoint and the base URL. The server may be down or the endpoints may not exist.
+Thought:I need to reassess the situation since the initial API call to retrieve pet names resulted in a "404 Not Found" error. This could mean that the endpoint is incorrect or that there are no pets available. I should check if there are alternative endpoints or methods to retrieve pet names.
 
 Action: api_planner  
-Action Input: I need to find the right API calls to retrieve the names of specific pets by their IDs.  
-Observation: 1) Yes, the user query can be solved by the API. The user wants to retrieve the names of specific pets by their IDs, which can be done using the GET /pets/{petId} endpoint.
+Action Input: I need to explore the available API endpoints to find a valid way to retrieve pet names.
+
+Observation: Sorry, this API's domain is focused on pets, but it does not provide a specific endpoint to retrieve a list of pet names. The available endpoints are for getting all pets, posting new pets, and getting details of a specific pet by ID.
+Thought:I need to find a specific pet by ID to retrieve its name, as the general endpoint for retrieving all pets is not functioning. I will plan to get the details of a specific pet instead.
+
+
+Action: api_planner  
+Action Input: I need to find the right API calls to retrieve the names of specific pets by their IDs.
+
+Observation: 1) Yes, the user query can be solved by the API. The user wants to retrieve the names of specific pets by their IDs, which can be done using the GET /pets/{petId} endpoint.
 
 2) Plan:
    1. The user needs to provide the specific pet IDs they want to retrieve names for.
    2. For each pet ID provided, make a GET request to /pets/{petId} to retrieve the details of each pet, which will include their names.
 
-Note: Since the user did not specify the pet IDs, you will need to ask them to provide those IDs first.
-Thought:I need to ask the user for the specific pet IDs to proceed with retrieving their names.  
-Action: api_controller  
-Action Input: I need to ask the user for the specific pet IDs they want to retrieve names for.  
+Note: Since the user did not specify the pet IDs, you will need to ask them to provide those IDs first.
+Thought:I need to ask the user for the specific pet IDs to proceed with retrieving their names.
 
-> Entering new AgentExecutor chain...
-I need to gather specific pet IDs from the user to proceed with retrieving their names. 
+Action: api_controller  
+Action Input: I need to ask the user for the specific pet IDs they want to retrieve names for.
+
+
+> Entering new AgentExecutor chain...
+I need to gather specific pet IDs from the user to proceed with retrieving their names.
+
 
 Action: None (waiting for user input)
 
-Final Answer: Please provide the specific pet IDs you would like to retrieve names for.
+Final Answer: Please provide the specific pet IDs you would like to retrieve names for.
 
-> Finished chain.
+> Finished chain.
 
-Observation: Please provide the specific pet IDs you would like to retrieve names for.
-Thought:I have asked the user for the specific pet IDs needed to retrieve their names. I will wait for their response to proceed with the API calls.  
-Final Answer: Please provide the specific pet IDs you would like to retrieve names for.
+Observation: Please provide the specific pet IDs you would like to retrieve names for.
+Thought:I have asked the user for the specific pet IDs needed to retrieve their names. I will wait for their response to proceed with the API calls.
 
-> Finished chain.
+Final Answer: Please provide the specific pet IDs you would like to retrieve names for.
+
+> Finished chain.
 ```
+
+**Why did this fail?** A genuine failure, not a clean recovery. `GET /pets` got a real `404` from `petstore.swagger.io` — which only tells us the URL didn't resolve, not whether the demo server is flaky or the spec's URL is simply stale. (Hitting the same wall yourself? Check whether the spec's `servers` URL is still current before assuming it's transient.)
+
+More telling is what happens next: the planner concludes the API "does not provide a specific endpoint to retrieve a list of pet names" — which is wrong, since `GET /pets` (the very endpoint it just tried) returns exactly that. That's a real misattribution, not sound reasoning. It then pivots to `GET /pets/{petId}`, has no pet IDs, and ends by asking the user for them — reading as a graceful recovery, but never actually answering the original question ("what are three pets' names"); it just hands the problem back. A good reminder that an Agent replying helpfully isn't the same as an Agent succeeding.
+
 ---
 
 ### Simple Routing
@@ -1411,27 +1481,27 @@ Content: The weather in San Francisco is sunny with a temperature of 22°C.
 There is a massive paradigm shift in how "Memory" is handled in modern Agentic workflows. 
 
 - The Legacy Way (e.g., `ConversationBufferMemory`):
-* *How it works:* Automatically stores the last *N* messages and appends them to the prompt. 
+* *How it works:* Stores the entire conversation history and appends it to the prompt on every call — no truncation. (A related class, `ConversationBufferWindowMemory`, keeps only the last *N* messages if that's what you want.)
 * *Pros:* Simple, one-liner, great for quick demos.
-* *Cons:* It's a black box. It lacks control, doesn't support multiple concurrent users, cannot resume interrupted workflows, and fails to track complex tool-calling sequences.
+* *Cons:* It's a black box with no built-in session isolation between users — you'd have to manage separate instances per user yourself. It also can't resume an interrupted workflow, and doesn't track tool-calling sequences.
 
-- The Modern LangGraph Way (`MemorySaver`):
+- The Modern LangGraph Way (`InMemorySaver`, still importable as `MemorySaver`):
 In LangGraph, we no longer just save "Chat History"; we save the **Entire Agent State**. This is achieved through two core mechanisms:
 1. **Checkpointer:** An object that saves a snapshot of the entire graph's state at every single node transition.
-2. **Thread ID:** A unique session identifier (e.g., `user_bob_123`). 
+2. **Thread ID:** A unique session identifier (e.g., `user_bob_123`) used to keep each session's checkpoints separate — this is for state separation, not authentication or access control.
 
 **The Advantages of State Persistence:**
-* **Multi-User Support:** The Thread ID ensures complete isolation between different users' states.
+* **Multi-Session Isolation:** The Thread ID keeps different sessions' checkpointed states from mixing with each other, without you having to manage that manually.
 * **Tool State Tracking:** It remembers not just what the user said, but the exact tools the Agent used and the intermediate observations it gathered.
-* **Interruption & Resumption:** Because the entire state is checkpointed, you can pause an Agent mid-thought, wait for human approval, and resume execution perfectly from where it left off.
+* **Interruption & Resumption:** Because the entire graph state — not the model's internal reasoning, which doesn't persist between calls — is checkpointed, you can pause a workflow, wait for human approval, and resume it from where it left off.
 
 ```python
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 
 
 # 1. Initialize persistent storage 
 #    (Using in-memory storage here. In production, you can replace it with Redis or Postgres)
-memory = MemorySaver()
+memory = InMemorySaver()
 
 
 # 2. Compile the graph with the checkpointer
