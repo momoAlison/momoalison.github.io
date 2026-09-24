@@ -3,7 +3,7 @@ title: "Functions, Tools and Agents with LangChain"
 description: "Notes on function calling, tools, routing, extraction, and conversational agents with LangChain, including updates on newer agent patterns."
 published: 2026-03-18
 collection: notes
-tags: [AI, LangChain, Python, Agents]
+tags: [LangChain]
 draft: false
 ---
 
