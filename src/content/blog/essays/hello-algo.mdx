@@ -1,5 +1,6 @@
 ---
 title: "Hello, Algo"
+description: "A quick-recall Python reference for coding interviews: how Python represents data structures, the core algorithm patterns with pseudocode, and worked LeetCode examples."
 published: 2026-09-21
 collection: essays
 tags: [Python, Algorithms]
@@ -24,21 +25,21 @@ The note is in three parts: **Data Structures** (how Python represents them, and
 
 **Primitives:**
 
-| Type | Example | Use it for |
-| --- | --- | --- |
-| `int` | `5`, `-3` | Whole numbers — Python `int`s are arbitrary-precision, so no overflow to worry about (unlike fixed-width int types in other languages). |
-| `float` | `3.14` | Anything with a fractional part, or a result of true division (`/`). |
-| `str` | `"abc"` | Text; immutable — every "modification" makes a new string. |
-| `bool` | `True`, `False` | Conditions and flags. Note: `bool` is technically a subclass of `int` (`True == 1`), which occasionally matters — e.g. `sum(x > 0 for x in nums)` counts truthy values. |
+| Type | Example | Mutable? | Use it for |
+| --- | --- | --- | --- |
+| `int` | `5`, `-3` | <span class="mut-tag mut-tag--immutable">immutable</span> | Whole numbers — Python `int`s are arbitrary-precision, so no overflow to worry about (unlike fixed-width int types in other languages). |
+| `float` | `3.14` | <span class="mut-tag mut-tag--immutable">immutable</span> | Anything with a fractional part, or a result of true division (`/`). |
+| `str` | `"abc"` | <span class="mut-tag mut-tag--immutable">immutable</span> | Text — every "modification" makes a new string. |
+| `bool` | `True`, `False` | <span class="mut-tag mut-tag--immutable">immutable</span> | Conditions and flags. Note: `bool` is technically a subclass of `int` (`True == 1`), which occasionally matters — e.g. `sum(x > 0 for x in nums)` counts truthy values. |
 
 **Containers** — this is the one that actually matters for interview problems, since picking the wrong one changes your solution's complexity:
 
 | Type | Ordered? | Mutable? | Duplicates? | Use it for |
 | --- | --- | --- | --- | --- |
-| `list` | Yes | Yes | Yes | The default array/stack/dynamic-sequence type. Index access, iteration order, `.append()`/`.pop()` at the end. |
-| `dict` | Yes (insertion order, since 3.7) | Yes | Keys: no. Values: yes | Key → value lookups in `O(1)` average. The backbone of hash-table and adjacency-list problems. |
-| `tuple` | Yes | **No** | Yes | A fixed "record" — hashable *if every element inside it is hashable* (`hash(([1], 2))` still raises `TypeError`, since the `list` inside isn't hashable), which is usually enough to make it a valid `dict` key or `set` member where a `list` can't be. |
-| `set` | No | Yes | **No** | Membership checks (`x in s`) in `O(1)` average, and fast union/intersection/difference — the same job a `dict` does, minus the values. |
+| `list` | Yes | <span class="mut-tag mut-tag--mutable">mutable</span> | Yes | The default array/stack/dynamic-sequence type. Index access, iteration order, `.append()`/`.pop()` at the end. |
+| `dict` | Yes (insertion order, since 3.7) | <span class="mut-tag mut-tag--mutable">mutable</span> | Keys: no. Values: yes | Key → value lookups in `O(1)` average. The backbone of hash-table and adjacency-list problems. |
+| `tuple` | Yes | <span class="mut-tag mut-tag--immutable">immutable</span> | Yes | A fixed "record" — hashable *if every element inside it is hashable* (`hash(([1], 2))` still raises `TypeError`, since the `list` inside isn't hashable), which is usually enough to make it a valid `dict` key or `set` member where a `list` can't be. |
+| `set` | No | <span class="mut-tag mut-tag--mutable">mutable</span> | **No** | Membership checks (`x in s`) in `O(1)` average, and fast union/intersection/difference — the same job a `dict` does, minus the values. |
 
 **Constructing each one:**
 
@@ -70,21 +71,33 @@ s = set([1, 2, 1])       # from an iterable, deduplicated -> {1, 2}
 s = {x for x in range(5)}  # comprehension
 ```
 
-Three gotchas worth remembering:
+Four gotchas worth remembering:
 - **`{}` is an empty `dict`, not an empty `set`.** The only way to get an empty set is `set()`.
 - **A single-element tuple needs a trailing comma.** `(1)` evaluates to the int `1`; the comma is what actually makes something a tuple, not the parentheses (which are optional).
 - **There's no "tuple comprehension."** `(x for x in range(5))` isn't a tuple — it's a *generator expression*, lazily evaluated and consumable only once. An actual tuple needs `tuple(x for x in range(5))`.
+- **Postfix `if` filters; `X if cond else Y` before the `for` transforms.** Same keyword, opposite effect on length:
+  ```python
+  [i for i in range(6) if i % 2 == 0]
+  # [0, 2, 4]  — shorter: non-matches dropped
 
-**Two small Python idioms worth knowing cold:**
+  ['even' if i % 2 == 0 else 'odd' for i in range(6)]
+  # ['even', 'odd', 'even', 'odd', 'even', 'odd']  — same length, every element kept and relabeled
+  ```
+
+### References, Copies, and Mutation
+
+One rule explains everything below: a Python variable is just a name pointing at an object. Assignment almost always just repoints a name — it doesn't touch the object. Mutable objects can be changed in place; immutable ones can't. And whenever two names happen to point at the *same* mutable object, an in-place change made through either name shows up through both.
+
+**Two small idioms worth knowing:**
 
 - **Tuple swap, no temp variable:** `a, b = b, a` — the right-hand side is packed into a tuple before anything is assigned, so both values are read from their *old* state simultaneously. Same mechanism, generalized, behind the Fibonacci `a, b = b, a + b` state update and the [Reverse Linked List](#reverse-linked-list) `curr.next, prev, curr = prev, curr, curr.next` trick.
-- **Tuples as hashable keys:** `(unit_price, weight)` or `(row, col)` can go straight into a `set` or as a `dict` key, as long as every element inside is itself hashable (plain numbers and strings always are) — a plain `list` never can, since Python disables hashing on it specifically. That's a property of `list`/`dict`/`set` themselves, though, not a universal "mutable objects aren't hashable" rule — an ordinary mutable class instance is hashable by default.
+- **Tuples as hashable keys:** `(unit_price, weight)` or `(row, col)` can go straight into a `set` or as a `dict` key, as long as every element inside is itself hashable — a plain `list` never can, since Python disables hashing on it specifically.
 
-**Reference assignment vs. shallow copy vs. deep copy** — the three ways to "copy" a mutable object, and how much they actually separate:
+**Reference assignment vs. shallow copy vs. deep copy** — three different amounts of separation between names:
 
-- **`a = path`** (reference assignment) — no new room gets built; you just hand out a second key to the *same* room. There's still only one TV in there — whoever breaks it, every key-holder sees it broken.
-- **`a = path[:]`** (shallow copy) — a genuinely new, physically separate room gets built next door. But to save effort, it has no new TV — just a portal straight back to the *old* room's TV. The outer container is new; anything mutable nested *inside* it is still shared.
-- **`copy.deepcopy(path)`** (deep copy) — a new room *and* a new TV bought for it. The two are now fully, physically independent, all the way down.
+- **`a = path`** — just a second key to the *same* room. Whoever mutates it, every key-holder sees it.
+- **`a = path[:]`** — a genuinely new room, but its only "TV" is a portal back to the old room's TV. The outer container is new; anything mutable nested *inside* it is still shared.
+- **`copy.deepcopy(path)`** — a new room *and* a new TV. Fully independent, all the way down.
 
 ```python
 import copy
@@ -95,31 +108,66 @@ shallow = original[:]      # or original.copy()
 deep = copy.deepcopy(original)
 ```
 
-Which one to reach for depends on what's inside: a shallow copy is enough — and cheaper — whenever the elements are themselves immutable (`int`s, strings, tuples of immutables), which is exactly why `path[:]` was the right call in [Permutations](#permutations) — the path only ever holds `int`s. The moment a container holds *another* mutable container (a nested list, a list of dicts), a shallow copy still shares that inner object, and only `deepcopy()` fully separates them.
+A shallow copy is enough — and cheaper — when the elements are numbers, strings, or other values with no mutable object nested anywhere inside, which is why `path[:]` was the right call in [Permutations](#permutations) (the path only ever holds `int`s). "Immutable" alone isn't enough: a `tuple` is immutable but can still hold a list (`[([1],)]`), so mutating that inner list through a shallow copy changes the original too. Once anything mutable is nested inside, only `deepcopy()` fully separates them.
 
-Full comparison against JS/TS pointer semantics: [The Memory Game: Assignment vs. Copying](/blog/essays/python-for-frontend-engineers/#the-memory-game-assignment-vs-copying).
+**`list += ` mutates in place; `list = list + ` doesn't** — the same name-sharing trap, easy to miss because they look interchangeable:
 
-The full type-by-type comparison against TypeScript/JS — variables, truthiness, dictionaries, slicing, copying vs. pointer assignment, and more — lives in [Python for Front-End Engineers: The Big Picture](/blog/essays/python-for-frontend-engineers/#the-big-picture-python-vs-jsts). This section is just the interview-speed cheat sheet.
+```python
+a = [1, 2]
+b = a
+b += [3]        # in-place — same object as append()/extend()
+# a == [1, 2, 3]  (a and b still point at the same list)
+
+c = [1, 2]
+d = c
+d = d + [3]      # builds a brand-new list, then repoints d to it
+# c == [1, 2]     (c untouched — d points somewhere else now)
+```
+
+`+` always builds a new list; `+=` on a list calls `list.__iadd__` and mutates in place. The distinction vanishes for immutable types (`x += 1` can't mutate an `int`, so it's always a repoint) — it only bites with mutable containers.
+
+**Mutable default arguments** are the same trap, hiding in a function signature: `def add_item(x, items=[]):` creates that `[]` **once**, at function-definition time — not per call — so every call that omits `items` shares and mutates the same list. Never default a parameter to a mutable object (`[]`, `{}`, `set()`, or any mutable instance); default to `None` and build the real value fresh inside the function body instead. Full walkthrough with both the broken and fixed versions: [Default Values & Optional Parameters](/blog/essays/python-for-frontend-engineers/#default-values--optional-parameters).
+
+**Does it mutate? There's no universal rule — it depends on the specific API — but these hold up well in practice:**
+1. **Built-in container methods that only mutate usually return `None`.** Python's convention: a method that changes an object in place has no new result to hand back. `sort()`, `append()`, `extend()`, `insert()`, `remove()`, `clear()`, `update()` all follow this. The direction matters: *mutating → usually `None`*, **not** *`None` → mutated* — `{}.get("missing")` returns `None` and changes nothing.
+2. **Mutating methods that return something are the exceptions:** `.pop()` / `dict.popitem()` return the removed item, and `dict.setdefault()` returns the value it found or inserted.
+3. **Don't assume a free function is safe.** `sorted(x)`, `reversed(x)`, `min(x)`, `max(x)` leave their input alone, but plenty of other functions mutate theirs and return `None` — `heapq.heapify(x)`, `heapq.heappush(heap, v)`, `random.shuffle(x)`, `bisect.insort(x, v)`. Check the docs.
+4. **Immutable types (`str`, `tuple`, `int`) can never be changed in place.** A "transforming" method like `.replace()` or `.upper()` therefore returns a result instead — usually a new object, though CPython may hand back the *same* object when nothing changed (`s.strip() is s` is `True` if there's nothing to strip). Either way, the original is untouched.
+
+One line to remember it by: *a method that only changes an object usually returns `None` — but a `None` result doesn't prove anything changed, and `.pop()`, `setdefault()` and functions like `heapify()` or `shuffle()` break the pattern, so check the docs.*
+
+The full type-by-type comparison against TypeScript/JS — variables, truthiness, dictionaries, slicing, copying vs. pointer assignment, and more — lives in [Python for Front-End Engineers: The Big Picture](/blog/essays/python-for-frontend-engineers/#the-big-picture-python-vs-jsts). These two sections are just the interview-speed cheat sheet.
 
 ### Bitwise Tricks
 
-Every number is stored in memory as binary regardless of how it's written in source; bitwise operators just work on those bits directly instead of going through decimal-facing arithmetic.
+Bitwise operators work on **integers** (`int`; `1.5 & 1` raises `TypeError`). Python defines them as if every `int` were an infinitely long two's-complement bit string — negative numbers have infinitely many leading `1`s — so there is no fixed width and no overflow.
 
 | Operator | Name | What it does | Equivalent to |
 | --- | --- | --- | --- |
 | `&` | AND | `1` only where both bits are `1` | Set intersection; masking (extracting specific bits) |
 | `\|` | OR | `1` where either bit is `1` | Set union; forcing specific bits to `1` |
 | `^` | XOR | `1` where the bits differ | "Addition without carry" — the key trick for finding a single unmatched number |
-| `~` | NOT | Flips every bit (including the sign bit) | `~n = -(n + 1)`; rarely used alone |
+| `~` | NOT | Flips every bit | `~n = -(n + 1)`; rarely used alone |
 | `<<` | Left shift | Shifts left, fills with `0` | Multiply by `2^k` |
-| `>>` | Right shift | Shifts right, drops overflow | Floor-divide by `2^k` |
+| `>>` | Right shift | Shifts right, discarding the low bits and keeping the sign | Floor-divide by `2^k` (`-3 >> 1 == -2`) |
 
-Four patterns cover the large majority of bit-manipulation problems:
+Five patterns cover the large majority of bit-manipulation problems:
 
-1. **XOR self-cancellation, `a ^ a = 0`.** Any number XORed with itself is `0`; XOR is commutative. XOR every element of an array together and every *paired* value cancels out, leaving only an unpaired one — the trick behind [LeetCode 136 — Single Number](https://leetcode.com/problems/single-number/), `O(1)` space.
+1. **XOR self-cancellation, `a ^ a = 0`.** Any number XORed with itself is `0`; XOR is commutative. XOR every element of an array together and every value that appears an even number of times cancels out — so if exactly one value appears an odd number of times, it's what's left (with several such values you'd get their XOR combined). This is the trick behind [LeetCode 136 — Single Number](https://leetcode.com/problems/single-number/), `O(1)` space.
 2. **Clearing the lowest set bit, `n & (n - 1)`.** `n - 1` flips the lowest `1` bit to `0` and every bit right of it to `1`; ANDing clears exactly that bit. Used to count set bits (see [Number of 1 Bits](#number-of-1-bits)) and to check for a power of two — `n > 0 and n & (n - 1) == 0` (the `n > 0` matters, since `0` alone also satisfies the AND check).
 3. **Fast parity check, `n & 1`.** The last bit's place value is `2^0`, so it directly gives odd/even — equivalent to `n % 2 != 0`, but the idiomatic form in lower-level languages.
 4. **Binary search midpoint, `n >> 1`.** Right-shifting by one is floor division by 2 — `(left + right) >> 1` instead of `(left + right) // 2`.
+5. **Isolating the lowest set bit, `n & -n`.** In two's complement, `-n` flips every bit of `n` and adds `1`, which leaves it sharing the *same* lowest `1` bit as `n` while inverting everything above it — ANDing the two cancels every bit except that lowest one. The classic use is the "lowbit" operation in a Fenwick Tree (Binary Indexed Tree).
+
+**Quick reference:**
+
+| Expression | Does |
+| --- | --- |
+| `n & 1` | odd/even check |
+| `n & (n - 1)` | clear the lowest set bit |
+| `n & -n` | isolate the lowest set bit |
+| `a ^ a = 0` | XOR cancels paired elements |
+| `(left + right) >> 1` | integer divide by 2 / find midpoint |
 
 ### From Types to Data Structures
 
@@ -128,15 +176,15 @@ Each classic data structure's actual Python representation:
 | Data structure | Python representation | Key point |
 | --- | --- | --- |
 | Array | `list` | A `list` *is* a dynamic array. |
-| Stack | `list` | `.append()` / `.pop()` at the end are both `O(1)`. |
+| Stack | `list` | `.append()` is amortized `O(1)` (an occasional resize costs `O(n)`), and `.pop()` at the end is `O(1)`. |
 | Queue | [`deque`](#the-collections-toolkit) | `list.pop(0)` is `O(n)` — every remaining element shifts. `deque` gives `O(1)` at both ends. |
 | Hash table / hash set | `dict` / `set` | Direct implementations of the concept. |
 | Heap / priority queue | `list` + `heapq` | A heap's physical layout genuinely is just an array — see [The `collections` Toolkit](#the-collections-toolkit). |
 | Graph (adjacency list) | `dict` (usually `defaultdict(list)`) | Node → list of neighbors. |
-| Linked list | Custom `ListNode` class | Problems like [Reverse Linked List](#reverse-linked-list) require manipulating `.next` pointers directly. |
-| Tree | Custom `TreeNode` class | Recursive traversal needs real `.left`/`.right` references, not index math — a *complete* binary tree (like a heap) is the one exception that can be array-indexed. |
+| Linked list | `ListNode` class (`val`, `next`) | LeetCode supplies `ListNode`; problems like [Reverse Linked List](#reverse-linked-list) are about rewiring `.next` pointers, which a plain `list` doesn't model. |
+| Tree | `TreeNode` class (`val`, `left`, `right`) | LeetCode supplies `TreeNode`, and the tree problems here recurse over `.left`/`.right`. Any tree *can* be stored in arrays or dicts via child indices; a *complete* binary tree (like a heap) is special because children sit at computed positions `2i+1` / `2i+2`, so no extra storage is needed. |
 
-Array, stack, hash table/set, heap, and graph all map directly onto `list`/`dict`/`set` — their cost profile already matches. Queue needs `deque` specifically for its `O(1)` head operations. Linked list and tree need an actual node class, since the problems built on them require real pointer manipulation, not index math.
+Array, stack, hash table/set, heap, and graph all map directly onto `list`/`dict`/`set` — their cost profile already matches. Queue needs `deque` specifically for its `O(1)` head operations. Linked list and tree problems on LeetCode come with a node class (`ListNode` / `TreeNode`) and are written against its `.next` / `.left` / `.right` references — that's a convention of those problems, not a hard limit of arrays.
 
 ### The `collections` Toolkit
 
@@ -166,15 +214,15 @@ print(freq)   # Counter({'l': 2, 'h': 1, 'e': 1, 'o': 1})
 
 `Counter(s) == Counter(t)` is the shortest, most readable way to compare character frequencies — see [Valid Anagram](#valid-anagram) for a benchmark showing it's often the fastest option here too, not just the shortest.
 
-**`OrderedDict`** — before Python 3.7, dicts didn't guarantee insertion order; `OrderedDict` did, and still offers ordering operations (like `move_to_end()`) that plain `dict` doesn't. It's the standard backing structure for the classic **LRU Cache** problem.
+**`OrderedDict`** — before Python 3.7, dicts didn't guarantee insertion order; `OrderedDict` did, and still offers ordering operations (like `move_to_end()`) that plain `dict` doesn't. It's the classic backing structure for the **LRU Cache** problem.
 
 **`deque` vs. `list`** — `deque` is a genuinely different data structure, not just a faster `list`. `list` is one contiguous block of memory (a row of fixed, connected seats); `deque` is a doubly-linked list of memory blocks (a line of people holding hands) — which is why they're fast at opposite ends:
 
 | Operation | `list` | `deque` |
 | --- | --- | --- |
-| Tail insert/remove (`append()` / `pop()`) | `O(1)` | `O(1)` |
+| Tail insert/remove (`append()` / `pop()`) | amortized `O(1)` | `O(1)` |
 | Head insert/remove (`insert(0, x)`/`pop(0)` vs. `appendleft(x)`/`popleft()`) | `O(n)` | `O(1)` |
-| Random access by index (`arr[500]`) | `O(1)` | `O(n)` |
+| Random access by index (`arr[500]`) | `O(1)` | `O(1)` at the ends, `O(n)` in the middle |
 
 **Rule of thumb:** index-heavy work (`nums[i]`, binary search) → `list`. Queue-shaped work (BFS, FIFO order) → `deque`. And don't use `deque` as a substitute for a hand-rolled `ListNode` chain — you can't manipulate its internal links the way [Reverse Linked List](#reverse-linked-list) needs.
 
@@ -224,6 +272,18 @@ def binary_search(nums, target):
 
 See [Binary Search](#binary-search) and [Search Insert Position](#search-insert-position) for the concrete LeetCode solutions (the only difference between them is what the loop returns when the target isn't found).
 
+**In practice: the standard library already has this — `bisect`.** Same "just use the built-in" rule as sorting. `bisect.bisect_left(nums, x)` does what [Search Insert Position](#search-insert-position) asks, already written and optimized (for distinct values the two are identical; with duplicates, `bisect_left` returns the *leftmost* match while the hand-written version returns whichever match it hits first):
+
+```python
+import bisect
+
+nums = [1, 3, 3, 3, 5]
+bisect.bisect_left(nums, 3)    # 1 — first index where nums[i] >= 3  (lower bound)
+bisect.bisect_right(nums, 3)   # 4 — first index where nums[i] > 3   (upper bound)
+```
+
+If `x` isn't in the list, both functions agree on the same "insertion point" that keeps it sorted. When `x` *is* present, the gap between them is useful on its own — `bisect_right(nums, x) - bisect_left(nums, x)` counts how many times `x` occurs, in `O(log n)` instead of an `O(n)` scan. One-line way to remember which is which: **`left` finds where `x` would go before its duplicates, `right` finds where it'd go after them.**
+
 **Pattern 2: Hash Table Search — needs no sorting at all**
 
 No matter how disordered the data is, dropping it into a Python `dict` or `set` lets the underlying hash mechanism compute a hash value and jump straight to where it lives — like a perfectly indexed parcel locker: packages don't need to be sorted by size, just hand over the pickup code (the key) and the door pops open in `O(1)`.
@@ -240,7 +300,7 @@ Same interface as `binary_search` above (returns the index, or `-1`), but the tr
 
 ### Sorting: The General Pattern
 
-**In practice: just call the built-in.** In real engineering work, you almost never hand-write a sorting algorithm — `sort()` / `sorted()` is the only correct choice. Python's built-in sort is **Timsort**, a C-optimized, industrial-grade algorithm combining the strengths of merge sort and insertion sort. Hand-rolling a pure-Python quicksort inside a FastAPI backend, a database-result handler, or an agent's context pipeline is longer, more bug-prone, and slower than the built-in — in a real codebase, reimplementing a standard sort is a textbook case of reinventing the wheel.
+**In practice: just call the built-in.** In real engineering work, you almost never hand-write a sorting algorithm — `sort()` / `sorted()` is the right default. Python's built-in sort is **Timsort**, a C-optimized, industrial-grade algorithm combining the strengths of merge sort and insertion sort. Hand-rolling a pure-Python quicksort inside a FastAPI backend, a database-result handler, or an agent's context pipeline is longer, more bug-prone, and slower than the built-in — in a real codebase, reimplementing a standard sort is a textbook case of reinventing the wheel.
 
 - **`list.sort()`** — in place, no new list, most memory-efficient: `nums.sort()` / `nums.sort(reverse=True)`.
 - **`sorted()`** — returns a new list, leaves the original untouched, and works on any iterable (tuples, strings, even dicts by key).
@@ -264,7 +324,7 @@ For Merge Intervals, greedy problems, and the like, `nums.sort()` is often the v
 
 **Skip these:** Bubble Sort, Selection Sort — `O(n²)`, no practical value beyond a first-programming-class demo.
 
-**The "big three" — write these from memory:**
+**The "big three" — know these cold (for Heap Sort, that mostly means being fluent with `heapq`):**
 
 - **Quick Sort** — pick a pivot, then **partition**: two pointers scan the array and swap elements so everything `<= pivot` ends up on one side, everything greater on the other. Recurse on each side.
 
@@ -323,8 +383,9 @@ For Merge Intervals, greedy problems, and the like, `nums.sort()` is often the v
   import heapq
 
   def heap_sort(nums):
-      heapq.heapify(nums)                                       # O(n)
-      return [heapq.heappop(nums) for _ in range(len(nums))]    # O(n log n) total
+      heap = list(nums)                                         # copy: the pops below empty it
+      heapq.heapify(heap)                                       # O(n)
+      return [heapq.heappop(heap) for _ in range(len(heap))]    # O(n log n) total
   ```
 
 **The "special weapons" — know the idea, not the code:** Counting Sort and Radix Sort don't compare elements at all, which is how they get past the `O(n log n)` floor comparison-based sorts are provably stuck at — but "past `O(n log n)`" isn't the same as a flat `O(n)`, and each has its own strict preconditions:
@@ -334,6 +395,78 @@ For Merge Intervals, greedy problems, and the like, `nums.sort()` is often the v
 - **Bucket Sort** — near-linear *only* under a favorable, roughly-uniform distribution. A bad distribution (everything landing in one bucket) loses that near-linear advantage regardless, and the worst-case complexity you fall back to depends on whatever sort runs *inside* each bucket — `O(n²)` if that's insertion sort (the common textbook choice), better if it's something with a guaranteed `O(n log n)` bound.
 
 Know *when* each applies and roughly why it's fast; you're very unlikely to be asked to hand-write one on the spot. See [Hello Algo's own bucket sort chapter](https://www.hello-algo.com/en/chapter_sorting/bucket_sort/) for the full derivation.
+
+**Which sort to reach for** — read top to bottom and stop at the first "yes". It's a priority checklist, not a strict classification; real constraints can overlap. Click a result to jump to its explanation or code:
+
+```mermaid
+graph TD
+    Q1{Production code that needs the full sorted order?}
+    Q2{Only need the top-K elements or a running median, not the full order?}
+    Q3{Tiny, known integer range?}
+    Q4{Strictly constrained on extra memory?}
+
+    A1[Built-in sort or sorted - Timsort]
+    A2[Heap via heapq - not a full sort]
+    A3[Counting Sort]
+    A4[Quick Sort - in place, but watch pivot choice and recursion depth]
+    A5["Merge Sort - guaranteed O(n log n) and stable"]
+
+    Q1 -->|Yes| A1
+    Q1 -->|No| Q2
+    Q2 -->|Yes| A2
+    Q2 -->|No| Q3
+    Q3 -->|Yes| A3
+    Q3 -->|No| Q4
+    Q4 -->|Yes| A4
+    Q4 -->|No| A5
+
+    classDef decision fill:#f9f2f4,stroke:#c7254e,stroke-width:2px,color:#c7254e,rx:5px,ry:5px;
+    classDef result fill:#e1f5fe,stroke:#03a9f4,stroke-width:2px,color:#01579b;
+
+    class Q1,Q2,Q3,Q4 decision;
+    class A1,A2,A3,A4,A5 result;
+
+    click A1 "#sorting-the-general-pattern" "Jump to Sorting"
+    click A2 "#kth-largest-element-in-an-array" "Jump to Kth Largest Element in an Array"
+    click A3 "#sorting-the-general-pattern" "Jump to Sorting"
+    click A4 "#sorting-the-general-pattern" "Jump to Sorting"
+    click A5 "#sort-an-array-merge-sort" "Jump to Sort an Array (Merge Sort)"
+```
+
+### Traversal (BFS and DFS): The General Pattern
+
+Two ways to visit everything reachable from a start node, in a graph or a tree. (A tree is just a graph with no cycles, so walking it downward from the root needs no `visited` set.)
+
+**BFS — a queue, nearest nodes first (level by level):**
+
+```python
+from collections import deque
+
+def bfs(graph, start):
+    visited = {start}
+    queue = deque([start])
+    while queue:
+        node = queue.popleft()
+        for nxt in graph[node]:
+            if nxt not in visited:
+                visited.add(nxt)        # mark when enqueuing, not when dequeuing
+                queue.append(nxt)
+```
+
+**DFS — recursion (or an explicit stack), as deep as possible first:**
+
+```python
+def dfs(graph, node, visited):
+    visited.add(node)
+    for nxt in graph[node]:
+        if nxt not in visited:
+            dfs(graph, nxt, visited)
+```
+
+- **Which one:** BFS when you need the **fewest steps** in an unweighted graph or want to process **level by level** — the first time BFS reaches a node is along a shortest path. DFS for plain reachability, exhaustive exploration, and tree recursion; it's also the skeleton of [backtracking](#backtracking-the-general-pattern) (DFS plus an undo step).
+- **Visited:** mark a node the moment it's queued (BFS) or entered (DFS), so it's never processed twice. Either way, `O(V + E)` time and `O(V)` space.
+- **Python specifics:** BFS needs a `deque`, not a `list`, for `O(1)` `popleft()` (see [The `collections` Toolkit](#the-collections-toolkit)). Recursive DFS is capped by the recursion limit (about 1,000 frames by default) — on a very long path, switch to an explicit stack (`stack = [start]`, `stack.pop()`).
+- **Examples:** [Binary Tree Level Order Traversal](#binary-tree-level-order-traversal) and [Find if Path Exists in Graph](#find-if-path-exists-in-graph) (BFS); [Maximum Depth of Binary Tree](#maximum-depth-of-binary-tree) and [Kth Smallest Element in a BST](#kth-smallest-element-in-a-bst) (DFS on trees).
 
 ### Choosing Between Them
 
@@ -375,7 +508,7 @@ The recurring idea: split a big problem into independent smaller ones, solve eac
 
 ### Backtracking: The General Pattern
 
-```text
+```text {8-10}
 function backtrack(path, choices):
     if path is a complete solution:
         record(path)
@@ -396,7 +529,7 @@ Any problem that boils down to exhaustive enumeration is a backtracking candidat
 
 **What DP actually is.** Not recursion itself — DP is about **eliminating redundant work by trading space for time**: break a problem into subproblems, and remember the ones you've already solved. Three stages of the same idea:
 
-1. **Pure recursion** (brute-force divide-and-conquer) — correct, but naive Fibonacci is the specific case where it recomputes the same subproblem exponentially many times. That's not a general law about overlap, though: how much repeated work you actually get depends on the recurrence itself (its branching factor and depth), not just "subproblems overlap, therefore exponential" — and independent subproblems (merge sort, `Pow(x, n)`) don't overlap at all, which is *a* reason they stay polynomial, not the only possible one. Either way, this stage isn't DP yet.
+1. **Pure recursion** (brute force) — correct, but naive Fibonacci recomputes the same subproblem exponentially many times. Whether overlap blows up depends on the recurrence itself (its branching factor and depth), so don't read this as "overlap ⇒ exponential". Independent subproblems (merge sort, `Pow(x, n)`) don't overlap at all, so there's nothing to recompute. This stage isn't DP yet.
 2. **Recursion + memoization** (top-down DP) — cache each subproblem's result (a `dict`, or `@cache`) the first time it's computed.
 3. **Iteration + a state table** (bottom-up DP) — the standard interview form: start from the base cases and fill a table (the `dp` array) upward, with no recursion at all.
 
@@ -435,7 +568,7 @@ Greedy works by making the locally optimal decision at every stage and never loo
 
 ## Part 3: LeetCode Examples
 
-The concrete problems and solutions behind Parts 1 and 2, grouped the same way — mostly code, with just enough notes to explain a non-obvious choice.
+The concrete problems and solutions behind Parts 1 and 2, organized by topic — mostly code, with just enough notes to explain a non-obvious choice. Code is written for Python 3 (note `nonlocal` in Kth Smallest), even though the LeetCode stubs keep the older `class Solution(object)` form.
 
 ### Bitwise Operations
 
@@ -443,7 +576,9 @@ The concrete problems and solutions behind Parts 1 and 2, grouped the same way �
 
 [LeetCode: Number of 1 Bits](https://leetcode.com/problems/number-of-1-bits/)
 
-> Given a non-negative integer `n`, count the number of 1s in its binary representation, using bitwise operations. Do not convert the number to a string or use a built-in that directly counts bits.
+> Given a non-negative integer `n`, count the number of 1s in its binary representation.
+
+**Exercise goal:** use bitwise operations — don't convert the number to a string or use a built-in that counts bits.
 
 ```python
 class Solution(object):
@@ -489,7 +624,9 @@ class Solution(object):
 
 [LeetCode: Reverse Linked List](https://leetcode.com/problems/reverse-linked-list/)
 
-> Given the head of a singly linked list, reverse it iteratively and return the new head. Don't create any new nodes.
+> Given the head of a singly linked list, reverse it and return the new head.
+
+**Exercise goal:** reverse iteratively by rewiring pointers — don't create any new nodes.
 
 ```python
 # Definition for singly-linked list.
@@ -515,7 +652,7 @@ class Solution(object):
         return prev   # prev ends up on the old tail — the new head
 ```
 
-**Pythonic version (tuple unpacking — see [Python's Basic Data Types](#pythons-basic-data-types) for why this is safe):**
+**Pythonic version (tuple unpacking — see [References, Copies, and Mutation](#references-copies-and-mutation) for why this is safe):**
 
 ```python
 class Solution(object):
@@ -527,13 +664,261 @@ class Solution(object):
         return prev
 ```
 
+#### Linked List Cycle
+
+[LeetCode: Linked List Cycle](https://leetcode.com/problems/linked-list-cycle/)
+
+> Given the head of a singly linked list, determine whether the list contains a cycle — that is, whether some node can be reached again by following `next` pointers.
+
+**Exercise goal:** do it in `O(1)` extra space.
+
+```python
+# Definition for singly-linked list.
+# class ListNode(object):
+#     def __init__(self, x):
+#         self.val = x
+#         self.next = None
+
+class Solution(object):
+    def hasCycle(self, head):
+        """
+        :type head: ListNode
+        :rtype: bool
+        """
+        slow = fast = head
+        while fast and fast.next:
+            slow = slow.next
+            fast = fast.next.next
+            if slow is fast:
+                return True
+        return False
+```
+
+**Floyd's tortoise and hare:** `slow` moves 1 step per round, `fast` moves 2. Either `fast` (or `fast.next`) hits `None` — no cycle — or the two meet — there is a cycle. Once both are inside the cycle, `fast` closes the gap to `slow` by exactly 1 node per round, so it can't jump over `slow` and must catch it. Compare with the `O(n)`-space alternative: store every visited node in a `set` and return `True` on a repeat.
+
+#### Linked List Cycle II
+
+[LeetCode: Linked List Cycle II](https://leetcode.com/problems/linked-list-cycle-ii/)
+
+> Given the head of a singly linked list, return the node where the cycle begins, or `None` if there is no cycle. Do not modify the list.
+
+```python
+class Solution(object):
+    def detectCycle(self, head):
+        """
+        :type head: ListNode
+        :rtype: ListNode
+        """
+        slow = fast = head
+        while fast and fast.next:
+            slow = slow.next
+            fast = fast.next.next
+            if slow is fast:
+                p = head
+                while p is not slow:
+                    p = p.next
+                    slow = slow.next
+                return p
+        return None
+```
+
+**Finding the entry, in four steps:** (1) `slow` and `fast` meet inside the cycle; (2) reset one pointer to `head` and leave the other at the meeting point; (3) move both **1 step at a time**; (4) where they meet again is the cycle's entry.
+
+**Why it works:** let `a` = steps from `head` to the entry, `b` = steps from the entry forward (along the cycle) to the meeting point, `c` = steps from the meeting point forward to the entry, and `L` = cycle length. When they meet, `slow` has walked `s = a + b + m·L` steps in total (`m` = any extra laps it made — possibly `0`, but not always: if the whole list is one cycle, `a = 0` and `slow` has already gone around once), and `fast` has walked `2s`. They're at the same node inside the cycle, so `fast` is a whole number of laps ahead: `2s − s = s = n·L`. Hence `a + b ≡ 0 (mod L)`, and since `b + c ≡ 0 (mod L)` too, `a ≡ c (mod L)` — that is, `a = k·L + c` for some whole number `k >= 0` (`a` is a step count, not a node). So a pointer from `head` takes `a` steps to reach the entry, and a pointer from the meeting point takes `a = kL + c` steps — `k` full laps back to the meeting point, then `c` more to the entry. Both land on the entry at the same moment (this also covers the case where the meeting point *is* the entry, `c = 0`).
+
+One line to remember: **distance from `head` to the entry = distance from the meeting point to the entry, plus some whole laps.**
+
+#### Middle of the Linked List
+
+[LeetCode: Middle of the Linked List](https://leetcode.com/problems/middle-of-the-linked-list/)
+
+> Given the head of a singly linked list, return the middle node. If there are two middle nodes, return the second one.
+
+```python
+class Solution(object):
+    def middleNode(self, head):
+        """
+        :type head: ListNode
+        :rtype: ListNode
+        """
+        slow = fast = head
+        while fast and fast.next:
+            slow = slow.next
+            fast = fast.next.next
+        return slow
+```
+
+**`fast` runs twice as far, so `slow` has gone half.** Odd length lands on the exact middle; even length lands on the *second* middle. To get the *first* middle of an even list, stop the loop one step earlier: `while fast.next and fast.next.next:`.
+
+#### Remove Nth Node From End of List
+
+[LeetCode: Remove Nth Node From End of List](https://leetcode.com/problems/remove-nth-node-from-end-of-list/)
+
+> Given the head of a singly linked list, remove the `n`-th node from the end and return the head. (`1 <= n <=` list length.)
+
+```python
+# Definition for singly-linked list.
+# class ListNode(object):
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+
+class Solution(object):
+    def removeNthFromEnd(self, head, n):
+        """
+        :type head: ListNode
+        :type n: int
+        :rtype: ListNode
+        """
+        dummy = ListNode(0, head)
+        fast = slow = dummy
+        for _ in range(n):
+            fast = fast.next
+        while fast.next:
+            fast = fast.next
+            slow = slow.next
+        slow.next = slow.next.next
+        return dummy.next
+```
+
+**Not a speed difference this time — a fixed gap.** Send `fast` `n` steps ahead, then move both 1 step at a time; when `fast` reaches the last node, `slow` is sitting just *before* the node to delete. The `dummy` head handles the case where the node to remove is the head itself. (To just *find* the `k`-th node from the end: `fast` leads by `k`, then move both until `fast` is `None` — `slow` is the answer.)
+
+### Two Pointers
+
+Same-direction fast/slow pointers are covered under [Linked List Cycle](#linked-list-cycle) above. This section has two other kinds: one pointer from each end squeezing toward the middle (the palindrome problems), and a **sliding window** where both pointers move right (the last two problems).
+
+#### Valid Palindrome
+
+[LeetCode: Valid Palindrome](https://leetcode.com/problems/valid-palindrome/)
+
+> Given a string `s`, return whether it is a palindrome after ignoring non-alphanumeric characters and case.
+
+```python
+class Solution(object):
+    def isPalindrome(self, s):
+        """
+        :type s: str
+        :rtype: bool
+        """
+        left, right = 0, len(s) - 1
+        while left < right:
+            while left < right and not s[left].isalnum():
+                left += 1
+            while left < right and not s[right].isalnum():
+                right -= 1
+            if s[left].lower() != s[right].lower():
+                return False
+            left += 1
+            right -= 1
+        return True
+```
+
+**Squeeze toward the middle; any unequal pair means it isn't a palindrome.** The two inner `while` loops are only the LeetCode-specific cleanup (skip punctuation); for a plain palindrome check, drop them and compare `s[left] == s[right]` directly. `O(n)` time, `O(1)` space.
+
+#### Valid Palindrome II
+
+[LeetCode: Valid Palindrome II](https://leetcode.com/problems/valid-palindrome-ii/)
+
+> Given a string `s`, return whether it can become a palindrome after deleting **at most one** character.
+
+```python
+class Solution(object):
+    def validPalindrome(self, s):
+        """
+        :type s: str
+        :rtype: bool
+        """
+        def is_pal(l, r):
+            while l < r:
+                if s[l] != s[r]:
+                    return False
+                l += 1
+                r -= 1
+            return True
+
+        left, right = 0, len(s) - 1
+        while left < right:
+            if s[left] != s[right]:
+                return is_pal(left + 1, right) or is_pal(left, right - 1)
+            left += 1
+            right -= 1
+        return True
+```
+
+**Same squeeze, but the first mismatch gets one chance:** skip the left character *or* the right one, and succeed if either remaining range is a palindrome. Compare the two side by side: plain palindrome — mismatch → `False`; delete-one — mismatch → skip left **or** skip right. Only the *first* mismatch needs this, since the budget is a single deletion.
+
+#### Longest Substring Without Repeating Characters
+
+[LeetCode: Longest Substring Without Repeating Characters](https://leetcode.com/problems/longest-substring-without-repeating-characters/)
+
+> Given a string `s`, return the length of the longest substring that contains no repeated character.
+
+```python
+class Solution(object):
+    def lengthOfLongestSubstring(self, s):
+        """
+        :type s: str
+        :rtype: int
+        """
+        seen = set()
+        left = 0
+        best = 0
+        for right, ch in enumerate(s):
+            while ch in seen:           # violation: shrink until valid again
+                seen.remove(s[left])
+                left += 1
+            seen.add(ch)
+            best = max(best, right - left + 1)
+        return best
+```
+
+**Sliding window, longest version: `right` expands, `left` shrinks only on a violation.** Each step grows the window by one, and only if that breaks the rule (a repeated character) does `left` advance until the window is valid again; the best length is recorded after every step. Only "is it in the window?" matters here, so a `set` is enough.
+
+#### Minimum Size Subarray Sum
+
+[LeetCode: Minimum Size Subarray Sum](https://leetcode.com/problems/minimum-size-subarray-sum/)
+
+> Given an array of positive integers `nums` and a positive integer `target`, return the minimal length of a contiguous subarray whose sum is `>= target`, or `0` if none exists.
+
+```python
+class Solution(object):
+    def minSubArrayLen(self, target, nums):
+        """
+        :type target: int
+        :type nums: List[int]
+        :rtype: int
+        """
+        left = 0
+        total = 0
+        best = float('inf')
+        for right, x in enumerate(nums):
+            total += x
+            while total >= target:      # valid: record it, then try to shrink
+                best = min(best, right - left + 1)
+                total -= nums[left]
+                left += 1
+        return 0 if best == float('inf') else best
+```
+
+**Sliding window, shortest version: the moment the window qualifies, keep shrinking.** Record the length, drop `nums[left]`, and repeat while it still qualifies — that's how you find the *shortest* valid window ending at each `right`. This needs `target >= 1`: with `target <= 0` the `while` condition never fails and `left` would run past `right`.
+
+**The sliding-window cheat sheet:**
+
+- **Fixed window of length `k`: one in, one out.** Add `nums[right]`, subtract `nums[right - k]`, each update `O(1)`. No shrinking logic needed since the length never changes (e.g. the maximum sum of any `k` consecutive elements).
+- **Variable window: `right` expands, `left` shrinks.** **Longest** valid window → shrink only on a violation. **Shortest** valid window → shrink as soon as it qualifies.
+- **`set` vs. `dict`/`Counter`:** only asking "is it in the window?" → `set`. Need *how many times* (e.g. "at most 2 distinct characters") → `Counter`, and `del count[x]` when it hits `0` — a `Counter` keeps zero-count keys, so without the `del`, `len(count)` would overcount the distinct elements.
+- **Why it's `O(n)` despite the nested loop:** `left` and `right` each only ever move right, at most `n` steps apiece, never backwards.
+- **Needs monotonicity:** with non-negative numbers, expanding never lowers the sum and shrinking never raises it, so you always know which pointer to move. Negative numbers break that, and the plain sum-based window stops working.
+
 ### Stacks and Queues
 
 #### Valid Parentheses
 
 [LeetCode: Valid Parentheses](https://leetcode.com/problems/valid-parentheses/)
 
-> Given a string `s` containing only `()`, `[]`, and `{}`, determine whether it's valid using a stack. Every closing bracket must match the type of the most recently unmatched opening bracket, and no unmatched opening bracket may remain at the end.
+> Given a string `s` containing only `()`, `[]`, and `{}`, determine whether it's valid. Every closing bracket must match the type of the most recently unmatched opening bracket, and no unmatched opening bracket may remain at the end.
+
+**Exercise goal:** use a stack.
 
 ```python
 class Solution(object):
@@ -560,7 +945,9 @@ class Solution(object):
 
 [LeetCode: Valid Anagram](https://leetcode.com/problems/valid-anagram/)
 
-> Given two lowercase strings `s` and `t`, determine whether `s`'s characters can be rearranged to form `t` (no characters added, removed, or replaced) using a hash table — don't sort the strings.
+> Given two lowercase strings `s` and `t`, determine whether `s`'s characters can be rearranged to form `t` (no characters added, removed, or replaced).
+
+**Exercise goal:** count letters with a hash table — don't sort the strings.
 
 ```python
 class Solution(object):
@@ -616,7 +1003,7 @@ class Solution(object):
         return all(count == 0 for count in counts)
 ```
 
-`Counter(s) == Counter(t)` is still the right call for everyday code — shortest, most readable, and evidently not even the slowest option here. The array isn't smaller in Big-O terms either: since both strings are constrained to lowercase letters, `dict`/`Counter` can never hold more than 26 keys, so all three implementations use `O(1)` auxiliary space in this specific problem — the array's real advantage is a smaller, more predictable *constant* (26 plain ints vs. a hash table's per-entry overhead), not an asymptotic one. Treat any speed claim between these three as something to benchmark in your actual environment, not something to assume from the big-O alone.
+`Counter(s) == Counter(t)` is still the right call for everyday code — shortest, most readable, and the fastest in the benchmark above. The array isn't smaller in Big-O terms either: since both strings are constrained to lowercase letters, `dict`/`Counter` can never hold more than 26 keys, so all three implementations use `O(1)` auxiliary space in this specific problem — the array's real advantage is a smaller, more predictable *constant* (26 plain ints vs. a hash table's per-entry overhead), not an asymptotic one. Treat any speed claim between these three as something to benchmark in your actual environment, not something to assume from the big-O alone.
 
 ### Trees
 
@@ -624,7 +1011,9 @@ class Solution(object):
 
 [LeetCode: Maximum Depth of Binary Tree](https://leetcode.com/problems/maximum-depth-of-binary-tree/)
 
-> Given the root of a binary tree, return its maximum depth — the number of nodes along the longest path from the root to a leaf. An empty tree has depth `0`. Use recursion.
+> Given the root of a binary tree, return its maximum depth — the number of nodes along the longest path from the root to a leaf. An empty tree has depth `0`.
+
+**Exercise goal:** use recursion.
 
 **Note:** this problem counts depth by *nodes*, not edges — a tree with just a root node has depth `1`. Worth flagging because tree height/depth is more commonly defined by edge count by default (a single node has height `0`) — always check which convention a given problem is using.
 
@@ -652,7 +1041,9 @@ class Solution(object):
 
 [LeetCode: Binary Tree Level Order Traversal](https://leetcode.com/problems/binary-tree-level-order-traversal/)
 
-> Given the root of a binary tree, visit all nodes level by level — top to bottom, left to right within each level — using a queue. Return a 2D array, one subarray of values per level. An empty tree returns an empty array.
+> Given the root of a binary tree, visit all nodes level by level — top to bottom, left to right within each level. Return a 2D array, one subarray of values per level. An empty tree returns an empty array.
+
+**Exercise goal:** use a queue (BFS — see [Traversal](#traversal-bfs-and-dfs-the-general-pattern)).
 
 ```python
 from collections import deque
@@ -691,7 +1082,9 @@ class Solution(object):
 
 [LeetCode: Kth Smallest Element in a BST](https://leetcode.com/problems/kth-smallest-element-in-a-bst/)
 
-> Given the root of a BST with `n` nodes holding distinct values (positions numbered 1 through `n` in ascending order) and an integer `k` (`1 <= k <= n`), return the value at position `k`. Find it directly during an inorder traversal rather than collecting every value first.
+> Given the root of a BST with `n` nodes holding distinct values (positions numbered 1 through `n` in ascending order) and an integer `k` (`1 <= k <= n`), return the value at position `k`.
+
+**Exercise goal:** find it directly during an inorder traversal rather than collecting every value first.
 
 Inorder traversal of a BST visits nodes in ascending order — that's what makes "count as you go and stop at the k-th one" correct here, and it avoids collecting the whole list first.
 
@@ -735,7 +1128,9 @@ class Solution(object):
 
 [LeetCode: Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/)
 
-> Given an integer array `nums` and an integer `k` (`1 <= k <= n`, where `n` is the array's length), return the element that would appear at position `k` if the array were sorted from largest to smallest. Count duplicates separately — e.g. the 2nd-largest element of `[5, 5, 2]` is still `5`. Use a min-heap holding no more than `k` elements.
+> Given an integer array `nums` and an integer `k` (`1 <= k <= n`, where `n` is the array's length), return the element that would appear at position `k` if the array were sorted from largest to smallest. Count duplicates separately — e.g. the 2nd-largest element of `[5, 5, 2]` is still `5`.
+
+**Exercise goal:** use a min-heap holding no more than `k` elements.
 
 ```python
 import heapq
@@ -750,13 +1145,13 @@ class Solution(object):
         heap = nums[:k]
         heapq.heapify(heap)
 
-        for num in nums[k:]:
-            if num > heap[0]:
-                heapq.heapreplace(heap, num)
+        for i in range(k, len(nums)):    # index loop: no copy of nums[k:]
+            if nums[i] > heap[0]:
+                heapq.heapreplace(heap, nums[i])
         return heap[0]
 ```
 
-The heap holds the `k` largest values seen so far; its top (`heap[0]`) is the smallest of those `k` — which is exactly the `k`-th largest overall. See [The `collections` Toolkit](#the-collections-toolkit) for why `heapreplace` (not `heappush` + `heappop`) is the right call here.
+The heap holds the `k` largest values seen so far; its top (`heap[0]`) is the smallest of those `k` — which is exactly the `k`-th largest overall. Extra space is `O(k)` — which is why the loop walks `nums` by index instead of slicing `nums[k:]`, since a slice would copy the rest of the list and bring the extra space back up to `O(n)`. See [The `collections` Toolkit](#the-collections-toolkit) for why `heapreplace` (not `heappush` + `heappop`) is the right call here.
 
 ### Graphs
 
@@ -764,7 +1159,9 @@ The heap holds the `k` largest values seen so far; its top (`heap[0]`) is the sm
 
 [LeetCode: Find if Path Exists in Graph](https://leetcode.com/problems/find-if-path-exists-in-graph/)
 
-> An undirected graph has `n` vertices labeled `0` to `n - 1`; the array `edges` lists each undirected connection as `[u, v]`. Given a `source` and `destination` vertex, build an adjacency list from `edges`, then use BFS or DFS to determine whether a path exists between them. The graph may contain cycles and may be disconnected.
+> An undirected graph has `n` vertices labeled `0` to `n - 1`; the array `edges` lists each undirected connection as `[u, v]`. Given a `source` and `destination` vertex, determine whether a path exists between them. The graph may contain cycles and may be disconnected.
+
+**Exercise goal:** build an adjacency list from `edges`, then use BFS or DFS (see [Traversal](#traversal-bfs-and-dfs-the-general-pattern)).
 
 ```python
 from collections import defaultdict, deque
@@ -801,7 +1198,7 @@ class Solution(object):
         return False
 ```
 
-`defaultdict(list)` for the adjacency list, `deque` for the BFS queue — see [The `collections` Toolkit](#the-collections-toolkit) for why each is the right choice here (in particular, why a plain `list` would make the BFS queue slow).
+`defaultdict(list)` for the adjacency list, `deque` for the BFS queue — see [The `collections` Toolkit](#the-collections-toolkit) for why each is the right choice here (in particular, why a plain `list` would make the BFS queue slow), and [Traversal](#traversal-bfs-and-dfs-the-general-pattern) for the pattern itself.
 
 ### Searching
 
@@ -809,7 +1206,9 @@ class Solution(object):
 
 [LeetCode: Binary Search](https://leetcode.com/problems/binary-search/)
 
-> Given an integer array `nums` sorted in strictly increasing order and a `target` value, find `target` using binary search — return its index if present, otherwise `-1`.
+> Given an integer array `nums` sorted in strictly increasing order and a `target` value, find `target` — return its index if present, otherwise `-1`.
+
+**Exercise goal:** use binary search.
 
 ```python
 class Solution(object):
@@ -836,7 +1235,9 @@ class Solution(object):
 
 [LeetCode: Search Insert Position](https://leetcode.com/problems/search-insert-position/)
 
-> Given an integer array `nums` sorted in strictly increasing order and a `target` value, return its index if `target` is found, otherwise the index where it could be inserted to keep the array sorted. Use binary search.
+> Given an integer array `nums` sorted in strictly increasing order and a `target` value, return its index if `target` is found, otherwise the index where it could be inserted to keep the array sorted.
+
+**Exercise goal:** use binary search.
 
 ```python
 class Solution(object):
@@ -867,7 +1268,9 @@ Identical to [Binary Search](#binary-search) above except for what happens on a 
 
 [LeetCode: Sort an Array](https://leetcode.com/problems/sort-an-array/)
 
-> Given an integer array `nums`, implement merge sort yourself and return it sorted in non-decreasing order — no calling the language's built-in sort.
+> Given an integer array `nums`, return it sorted in non-decreasing order.
+
+**Exercise goal:** implement merge sort yourself — no calling the language's built-in sort.
 
 ```python
 class Solution(object):
@@ -905,7 +1308,9 @@ class Solution(object):
 
 [LeetCode: Pow(x, n)](https://leetcode.com/problems/powx-n/)
 
-> Given a real number `x` and an integer `n`, calculate `x^n` without calling the language's built-in power function. Use recursive divide and conquer — halve the exponent each step and reuse the already-computed subproblem result. `x^0` is defined as `1`, including when `x = 0`. When `n < 0`, `x != 0` is guaranteed, and the answer can be computed as `1 / x^(-n)`.
+> Given a real number `x` and an integer `n`, calculate `x^n`. `x^0` is defined as `1`, including when `x = 0`. When `n < 0`, `x != 0` is guaranteed, and the answer can be computed as `1 / x^(-n)`.
+
+**Exercise goal:** don't use the built-in power function — practice recursive divide and conquer, halving the exponent each step and reusing the already-computed subproblem result.
 
 ```python
 class Solution(object):
@@ -951,7 +1356,9 @@ class Solution(object):
 
 [LeetCode: Permutations](https://leetcode.com/problems/permutations/)
 
-> Given an array `nums` of distinct integers with at least one element, return all possible permutations (in any order), using each element exactly once. Use backtracking with a boolean array tracking which positions are already used in the current permutation.
+> Given an array `nums` of distinct integers with at least one element, return all possible permutations (in any order), using each element exactly once.
+
+**Exercise goal:** solve it with backtracking, using a boolean array to track which positions are already used in the current permutation. That's version 2 below; version 1 is the simpler starting point.
 
 **1. Simple version (`O(n)` membership check)**
 
@@ -1016,7 +1423,9 @@ The first programming exercise in the book.
 
 > The Fibonacci sequence is defined by `F(0) = 0`, `F(1) = 1`, and, for `n >= 2`, `F(n) = F(n - 1) + F(n - 2)`.
 >
-> Given a non-negative integer `n`, use a loop to calculate and return `F(n)`. Do not use recursion.
+> Given a non-negative integer `n`, calculate and return `F(n)`.
+
+**Exercise goal:** use a loop, not recursion — so version 2 below is the intended answer. Version 1 is shown first only for comparison.
 
 **1. Recursive (naive, top-down)**
 
@@ -1052,7 +1461,9 @@ As the book puts it: *"Only the previous two terms are needed to calculate the n
 
 [LeetCode: Climbing Stairs](https://leetcode.com/problems/climbing-stairs/)
 
-> A staircase has `n` steps; each move climbs 1 or 2 steps, and you must land exactly on step `n`. Count the number of distinct ways to reach the top (`n >= 1`; ways differ only in their sequence of 1-step/2-step moves). Use a 1D DP array — no two-variable space optimization yet.
+> A staircase has `n` steps; each move climbs 1 or 2 steps, and you must land exactly on step `n`. Count the number of distinct ways to reach the top (`n >= 1`; ways differ only in their sequence of 1-step/2-step moves).
+
+**Exercise goal:** first solve it with a plain 1D DP array; the two-variable space optimization comes as the follow-up below.
 
 ```python
 class Solution(object):
@@ -1099,7 +1510,9 @@ class Solution(object):
 
 #### 0-1 Knapsack
 
-A classic DP exercise from the Hello Algo book (not a standalone LeetCode problem): given equal-length arrays `wgt` and `val`, where item `i` has positive weight `wgt[i]` and non-negative value `val[i]`, and a knapsack of non-negative capacity `cap`. Each item may be selected at most once. Find the maximum total value that fits without exceeding `cap`. Use a 1D DP array.
+A classic DP exercise from the Hello Algo book (not a standalone LeetCode problem): given equal-length arrays `wgt` and `val`, where item `i` has positive weight `wgt[i]` and non-negative value `val[i]`, and a knapsack of non-negative capacity `cap`. Each item may be selected at most once. Find the maximum total value that fits without exceeding `cap`.
+
+**Exercise goal:** use one-dimensional DP.
 
 ```python
 class Solution(object):
@@ -1122,13 +1535,15 @@ class Solution(object):
         return dp[cap]
 ```
 
-**Why iterate `c` backwards?** This is the one detail in the code that's more worth remembering than the template itself. `dp[c - w]` needs to refer to the state *before item `i` was considered* — i.e., last round's value. Iterating `c` downward guarantees that when `dp[c]` is updated, `dp[c - w]` (a smaller index, not yet touched this round) still holds last round's value. Iterate upward instead, and `dp[c - w]` could already include item `i` from earlier in the *same* pass — which lets the loop pick item `i` more than once, silently turning this into the *unbounded* knapsack problem instead of 0-1. (Verified: a single item of weight 3, value 10, capacity 9 gives `10` iterating backward — correct — and `30` iterating forward, i.e. item `i` taken three times.)
+**Why iterate `c` backwards?** This is the one detail in the code that's more worth remembering than the template itself. `dp[c - w]` needs to refer to the state *before item `i` was considered* — i.e., last round's value. Iterating `c` downward guarantees that when `dp[c]` is updated, `dp[c - w]` (a smaller index, not yet touched this round) still holds last round's value. Iterate upward instead, and `dp[c - w]` could already include item `i` from earlier in the *same* pass — which lets the loop pick item `i` more than once, silently turning this into the *unbounded* knapsack problem instead of 0-1. (Example: a single item of weight 3, value 10, capacity 9 gives `10` iterating backward — correct — and `30` iterating forward, i.e. item `i` taken three times.)
 
 ### Greedy
 
 #### Fractional Knapsack
 
-Another Hello Algo book exercise (no LeetCode link): same setup as [0-1 Knapsack](#0-1-knapsack) (`wgt[i] > 0`, `val[i] >= 0`, capacity `cap >= 0`), except each item can be split — any fraction of an item may go into the knapsack, with value gained proportional to the fraction taken. Solve with a greedy algorithm; return the maximum total value as a float.
+Another Hello Algo book exercise (no LeetCode link): same setup as [0-1 Knapsack](#0-1-knapsack) (`wgt[i] > 0`, `val[i] >= 0`, capacity `cap >= 0`), except each item can be split — any fraction of an item may go into the knapsack, with value gained proportional to the fraction taken. Return the maximum total value as a float.
+
+**Exercise goal:** solve it with a greedy algorithm.
 
 ```python
 class Solution(object):
