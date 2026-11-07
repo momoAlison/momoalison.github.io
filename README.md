@@ -6,12 +6,16 @@ Alison's personal site — an Astro static site (Home, Blog, About).
 
 ## Local development
 
-Requires Node.js 22.12+.
+Requires Node.js 22.12+ (pinned to 22 in `.nvmrc`, which CI also reads).
 
 ```sh
+nvm use
 npm ci
+npx playwright install chromium   # needed by rehype-mermaid to render diagrams at build time
 npm run dev
 ```
+
+On a new machine, run `npm ci` instead of copying `node_modules` over: it contains platform-specific native binaries (e.g. esbuild, rolldown) that won't load on a different CPU architecture.
 
 Open `http://localhost:4321/`.
 
